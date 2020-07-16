@@ -6,6 +6,14 @@
 template class SoftmaxCrossEntropy<float>;
 // template class SoftmaxCrossEntropy<double>;
 
+//작은 값을 선택해주는 inline 함수
+/*
+inline float min(float x, float y)
+{
+  return x>y ? y : x ;
+}
+*/
+
 __global__ void SoftmaxCrossEntropy_ForwardPropagate_kernel(int time, int batchsize, int colsize, float epsilon, float *result, float *label, float *softmaxresult) {
     int result_idx = 0;
     int start      = 0;
@@ -15,10 +23,32 @@ __global__ void SoftmaxCrossEntropy_ForwardPropagate_kernel(int time, int batchs
         result_idx = time * batchsize + idx;
         start      = result_idx * colsize;
         end        = start + colsize;
-
+        //printf("colsize : %d\n", colsize);
         for (int i = start; i < end; i++) {
-            result[result_idx] += -label[i] * log(softmaxresult[i] + epsilon);
+            //result[result_idx] += -label[i] * log(MIN(softmaxresult[i], softmaxresult[i] + epsilon));
+            result[result_idx] += -label[i] * log(MAX(softmaxresult[i], softmaxresult[i] + epsilon));
+
+
+
+            // if(isnan(result[result_idx]) != 0){
+            //     printf("nan인 경우 index : %d\n", result_idx);
+            //     printf("%f \n", MAX(softmaxresult[i], softmaxresult[i] + epsilon));
+            //     printf("%f \n\n", log(MAX(softmaxresult[i], softmaxresult[i] + epsilon)));
+            //
+            // }
+
+
+            //result[result_idx] += -label[i] * log(softmaxresult[i]);
+        //    printf("\n %d \n", i);
         }
+    }
+}
+
+__global__ void print_kernel(int time, int batchsize) {
+    int result_idx = 0;
+    for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < batchsize; idx += blockDim.x * gridDim.x) {
+        result_idx = time * batchsize + idx;
+        printf("\n idx = %d result_idx =%d \n", idx, result_idx);
     }
 }
 
@@ -27,6 +57,12 @@ template<typename DTYPE> Tensor<DTYPE> *SoftmaxCrossEntropy<DTYPE>::ForwardPropa
     Tensor<DTYPE> *label         = this->GetLabel()->GetResult();
     Tensor<DTYPE> *softmaxresult = m_aSoftmaxResult;
     Tensor<DTYPE> *result        = this->GetResult();
+
+    #ifdef __LOSS__
+      std::cout<<"SoftmaxCrossEntropy Forward 호출 time = "<<pTime<<'\n';
+      std::cout<<"softmaxcrossentropy 의 입력값 : "<<'\n'<<input<<'\n';
+      std::cout<<"softmaxcrossentropy 의 라벨 값 : "<<'\n'<<label<<'\n';
+    #endif
 
     int batchsize = input->GetBatchSize();
     int colsize   = input->GetColSize();
@@ -40,9 +76,15 @@ template<typename DTYPE> Tensor<DTYPE> *SoftmaxCrossEntropy<DTYPE>::ForwardPropa
     DTYPE *pDevInput   = input->GetGPUData(pTime);
     DTYPE *pDevSoftMax = softmaxresult->GetGPUData(pTime);
 
+  //std::cout<<"softmax 실행 전의 결과"<<'\n';
+  //std::cout<<softmaxresult<<'\n';
+
     checkCUDNN(cudnnSoftmaxForward(this->GetCudnnHandle(), CUDNN_SOFTMAX_ACCURATE, CUDNN_SOFTMAX_MODE_INSTANCE,
                                    &alpha, pInputDesc, pDevInput,
                                    &beta, pSoftMaxDesc, pDevSoftMax));
+
+     // std::cout<<"kernel함수 전의 결과"<<'\n';
+     // std::cout<<softmaxresult<<'\n';
 
     int noBlock = 3, threadsPerBlock = 128;
     GetKernelParameters(batchsize, &noBlock, &threadsPerBlock);
@@ -50,13 +92,22 @@ template<typename DTYPE> Tensor<DTYPE> *SoftmaxCrossEntropy<DTYPE>::ForwardPropa
     DTYPE *pDevLabel  = label->GetGPUData(pTime);
     DTYPE *pDevResult = result->GetGPUData(pTime);
 
-    SoftmaxCrossEntropy_ForwardPropagate_kernel << < noBlock, threadsPerBlock >> > (pTime, batchsize, colsize, m_epsilon, pDevResult, pDevLabel, pDevSoftMax);
+//    std::cout<<"softmaxcrossentropy의 계산전 result 값"<<'\n';
+//    std::cout<<result<<'\n';
+
+    SoftmaxCrossEntropy_ForwardPropagate_kernel << < noBlock, threadsPerBlock >> > (0, batchsize, colsize, m_epsilon, pDevResult, pDevLabel, pDevSoftMax);
+    //print_kernel<<<noBlock, threadsPerBlock>>>(pTime, batchsize);
+
+
+    // std::cout<<"softmaxcrossentropy의 계산 결과"<<'\n';
+    // std::cout<<result<<'\n';
 
     return result;
 }
 
 __global__ void SoftmaxCrossEntropy_BackPropagate_kernel(int time, int capacity, float *input_delta, float *label, float *softmaxresult) {
     int idx = 0;
+
 
     for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < capacity; idx += blockDim.x * gridDim.x) {
         idx = time * capacity + idx;
@@ -81,7 +132,7 @@ template<typename DTYPE> Tensor<DTYPE> *SoftmaxCrossEntropy<DTYPE>::BackPropagat
     int noBlock = 3, threadsPerBlock = 128;
     GetKernelParameters(capacity, &noBlock, &threadsPerBlock);
 
-    SoftmaxCrossEntropy_BackPropagate_kernel << < noBlock, threadsPerBlock >> > (pTime, capacity, pDevInputDelta, pDevLabel, pDevSoftMax);
+    SoftmaxCrossEntropy_BackPropagate_kernel << < noBlock, threadsPerBlock >> > (0, capacity, pDevInputDelta, pDevLabel, pDevSoftMax);
 
     return NULL;
 }

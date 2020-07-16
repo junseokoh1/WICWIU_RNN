@@ -319,7 +319,8 @@ template<typename DTYPE> void DataLoader<DTYPE>::DataPreprocess() {
         for (int i = 0; i < m_batchSize; i++) {
             idx = (*setOfIdx)[i];
             // printf("%d", idx);
-            data = m_pDataset->GetData(idx);
+            //중요!!! 여기서 Tensor로 바뀌는거임!!!
+            data = m_pDataset->GetData(idx);            //GetData는 Dataset.hpp에 있음 근데 MNISTDataSet에도 구현되어 있음!!!
 
             for (int j = 0; j < m_numOfEachDatasetMember; j++) {
                 // Chech the type of Data for determine doing preprocessing (IMAGE)
@@ -365,7 +366,7 @@ template<typename DTYPE> void DataLoader<DTYPE>::Push2IdxBuffer(std::vector<int>
 template<typename DTYPE> std::vector<int> *DataLoader<DTYPE>::GetIdxSetFromIdxBuffer() {
     sem_wait(&m_distIdxFull);
     sem_wait(&m_distIdxMutex);
-    
+
     std::vector<int> *setOfIdx = m_splitedIdxBuffer.front();
     m_splitedIdxBuffer.pop();
 

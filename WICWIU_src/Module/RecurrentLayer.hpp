@@ -1,5 +1,5 @@
 #ifndef __RECURRENT_LAYER__
-#define __RECURRENT_LAYER__    value            //여기 부분 VLAUE하고 저렇게 하는게 맞는지 확인 할 것!!!!
+#define __RECURRENT_LAYER__    value
 
 #include "../Module.hpp"
 
@@ -33,17 +33,34 @@ public:
 
         Operator<DTYPE> *out = pInput;
 
-        //--------------------------------------------초기화 방법. 추후 필히 수정!!!!!!!!!!!
-        float xavier_i = 0.1;  //1/sqrt(inputsize);
-        float xavier_h = 0.1; //1/sqrt(hiddensize);
+        //--------------------------------------------초기화 방법-------------------------
+        float xavier_i = sqrt(2/(inputsize+hiddensize));
+        float xavier_h = sqrt(2/(hiddensize+hiddensize));
+        float xavier_o = sqrt(2/(inputsize+outputsize));
 
 
-        // float stddev = 0.1;
-        Tensorholder<DTYPE> *pWeight_x2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddensize, inputsize, 0.0, xavier_i), "RecurrentLayer_pWeight_x2h_" + pName);
-        Tensorholder<DTYPE> *pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddensize, hiddensize, 0.0, xavier_h), "RecurrentLayer_pWeight_h2h_" + pName);
-        Tensorholder<DTYPE> *pWeight_h2o = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, outputsize, hiddensize, 0.0, xavier_h), "RecurrentLayer_pWeight_h2o_" + pName);
+        //원래는 0.01로 해둠
+        Tensorholder<DTYPE> *pWeight_x2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddensize, inputsize, 0.0, 0.01), "RecurrentLayer_pWeight_x2h_" + pName);
+        //Tensorholder<DTYPE> *pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddensize, hiddensize, 0.0, 0.01), "RecurrentLayer_pWeight_h2h_" + pName);
+        //Tensorholder<DTYPE> *pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::IdentityMatrix(1, 1, 1, hiddensize, hiddensize), "RecurrentLayer_pWeight_h2h_" + pName);
 
-        out = new Recurrent<DTYPE>(out, pWeight_x2h, pWeight_h2h, pWeight_h2o, "Recurrent" + pName);
+        //cudnn때문에 추가
+        Tensorholder<DTYPE> *pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddensize, hiddensize+inputsize, 0.0, 0.01), "RecurrentLayer_pWeight_h2h_" + pName);
+        //Tensorholder<DTYPE> *pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddensize+inputsize, hiddensize, 0.0, 0.01), "RecurrentLayer_pWeight_h2h_" + pName);
+
+        Tensorholder<DTYPE> *pWeight_h2o = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, outputsize, hiddensize, 0.0, 0.01), "RecurrentLayer_pWeight_h2o_" + pName);
+
+        //recurrent 내에 bias 추가 하는 거!
+        Tensorholder<DTYPE> *rBias = new Tensorholder<DTYPE>(Tensor<DTYPE>::Constants(1, 1, 1, 1, hiddensize, 0.f), "RNN_Bias_" + pName);
+
+        //out = new Recurrent<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias);
+        //out = new RecurrentCUDNN<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias);
+        out = new RecurrentCUDNN2<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias);
+
+
+        //out = new MatMul<DTYPE>(pWeight_h2o, out, "rnn_matmul_ho");
+
+
 
         if (use_bias) {
             Tensorholder<DTYPE> *pBias = new Tensorholder<DTYPE>(Tensor<DTYPE>::Constants(1, 1, 1, 1, outputsize, 0.f), "Add_Bias_" + pName);

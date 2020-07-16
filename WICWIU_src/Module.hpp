@@ -174,7 +174,7 @@ template<typename DTYPE> Module<DTYPE>::Module(std::string pName) : Operator<DTY
     // m_ParameterDegree        = 0;
     // m_numOfExcutableOperator = 0;
     // for Window
-   
+
     Alloc();
 }
 
@@ -196,6 +196,10 @@ template<typename DTYPE> Operator<DTYPE> *Module<DTYPE>::SetInput(Operator<DTYPE
     m_apInput->Push(pInput);
     m_InputDegree++;
     this->AddEdgebetweenOperators(pInput);
+    #if __RNNDEBUG__
+    std::cout << "Module<DTYPE>::SetInput()" << '\n';
+    std::cout << "SetInput의 input값"<<pInput << '\n';
+    #endif
 
     return pInput;
 }
@@ -204,12 +208,18 @@ template<typename DTYPE> Operator<DTYPE> *Module<DTYPE>::SetParameter(Operator<D
     m_apParameter->Push(pParameter);
     m_ParameterDegree++;
     this->AddEdgebetweenOperators(pParameter);
+    #if __RNNDEBUG__
+    std::cout<<"=======Module::SetParameter()호출======="<<m_ParameterDegree<<'\n';
+    #endif
     return pParameter;
 }
 
 template<typename DTYPE> Operator<DTYPE> *Module<DTYPE>::SetExecutableOperater(Operator<DTYPE> *pExecutableOperater) {
     m_aaExcutableOperator->Push(pExecutableOperater);
     m_numOfExcutableOperator++;
+    #if __RNNDEBUG__
+    std::cout<<"Module::SetExecutableOperatore()호출"<<m_numOfExcutableOperator<<'\n';     // print할 때 둘다 1인 이유는 my_RNN에서 한번, RecurrentLayer에서 한번
+    #endif
     return pExecutableOperater;
 }
 
@@ -254,17 +264,24 @@ template<typename DTYPE> int Module<DTYPE>::IsInput(Operator<DTYPE> *pOperator) 
 template<typename DTYPE> int Module<DTYPE>::IsValid(Operator<DTYPE> *pOperator) {
     Container<Operator<DTYPE> *> *prevOp = pOperator->GetOutputContainer();
     int numOfOutputEdge                  = prevOp->GetSize();
+    #if __RNNDEBUG__
+    std::cout<<"IsValid에서 output연결된 수 : "<<numOfOutputEdge<<'\n';
+    std::cout<<"IsValid에서  : "<<m_numOfExcutableOperator<<'\n';
+    #endif
     int check                            = 0;
 
     // every Output node is already in Excutable Operator
     for (int i = 0; i < numOfOutputEdge; i++) {
         for (int j = 0; j < m_numOfExcutableOperator; j++) {
+            #if __RNNDEBUG__
+            std::cout<<(*prevOp)[i]<<'\n';
+            std::cout<<"ExcutableOperator에 있는거 : "<<(*m_aaExcutableOperator)[j]<<'\n';
+            #endif
             if ((*m_aaExcutableOperator)[j] == (*prevOp)[i]) {
                 check++;
                 break;
             }
         }
-
         if (check != (i + 1)) return FALSE;
     }
 
@@ -285,7 +302,7 @@ template<typename DTYPE> Operator<DTYPE> *Module<DTYPE>::AnalyzeGraph(Operator<D
     // BFS
     Container<Operator<DTYPE> *> queue;
 
-    queue.Push(pResultOperator);
+    queue.Push(pResultOperator);                                      //입력으로 받은 가장 마지막 operator를 넣어주고
     m_pLastOperator = pResultOperator;
 
     Container<Operator<DTYPE> *> *nextOp = NULL;
@@ -294,12 +311,17 @@ template<typename DTYPE> Operator<DTYPE> *Module<DTYPE>::AnalyzeGraph(Operator<D
 
     Operator<DTYPE> *out = NULL;
 
+    int test=0;     //내가 찍어볼려고 만든거
+
     while (queue.GetSize() > 0) {
         out = queue.Pop();
+        #if __RNNDEBUG__
+        std::cout<<"while반복:"<<test<<"  "<<out->GetName()<<'\n';
+        #endif
 
-        if (!(this->IsInput(out))) {
-            if (this->IsValid(out)) {
-                // std::cout << out->GetName() << '\n';
+        if (!(this->IsInput(out))) {                              //이거나   // IsInput이 False이여야됨
+            if (this->IsValid(out)) {                             //이거 둘 중에 한 조건을 만족하지 못하고 있음 continue로 빠져서 test 값이 증가안함  //IsValid는 true
+                //std::cout << out->GetName() << '\n';
 
                 if (out->GetIsTensorholder()) {
                     this->SetParameter(out);
@@ -309,6 +331,7 @@ template<typename DTYPE> Operator<DTYPE> *Module<DTYPE>::AnalyzeGraph(Operator<D
 
                 nextOp         = out->GetInputContainer();
                 numOfInputEdge = nextOp->GetSize();
+                //std::cout<<"numOfInputEdge : "<<numOfInputEdge<<'\n';
 
                 for (int i = 0; i < numOfInputEdge; i++) {
                     prevOp = (*nextOp)[i]->GetOutputContainer();
@@ -318,6 +341,7 @@ template<typename DTYPE> Operator<DTYPE> *Module<DTYPE>::AnalyzeGraph(Operator<D
                 }
             } else continue;
         } else continue;
+        test++;
     }
     // std::cout << '\n';
 
@@ -448,6 +472,7 @@ template<typename DTYPE> int Module<DTYPE>::ForwardPropagate(int pTime) {
  */
 template<typename DTYPE> int Module<DTYPE>::BackPropagate(int pTime) {
     for (int i = m_numOfExcutableOperator - 1; i >= 0; i--) {
+        //std::cout<<"Module<DTYPE>::BackPropagate 주소값 : "<<(*m_aaExcutableOperator)[i]<<'\n';
         (*m_aaExcutableOperator)[i]->BackPropagate(pTime);
     }
     return TRUE;
@@ -460,6 +485,9 @@ template<typename DTYPE> int Module<DTYPE>::BackPropagate(int pTime) {
  */
 template<typename DTYPE> int Module<DTYPE>::ResetResult() {
     for (int i = 0; i < m_numOfExcutableOperator; i++) {
+        #if __RESET__
+        std::cout<<(*m_aaExcutableOperator)[i]->GetName()<<"Module<DTYPE>::ResetResult()"<<'\n';
+        #endif
         (*m_aaExcutableOperator)[i]->ResetResult();
     }
     return TRUE;
@@ -472,6 +500,9 @@ template<typename DTYPE> int Module<DTYPE>::ResetResult() {
  */
 template<typename DTYPE> int Module<DTYPE>::ResetGradient() {
     for (int i = 0; i < m_numOfExcutableOperator; i++) {
+        #if __RESET__
+        std::cout<<"Module<DTYPE>::ResetGradient()"<<'\n';
+        #endif
         (*m_aaExcutableOperator)[i]->ResetGradient();
     }
     return TRUE;

@@ -106,6 +106,10 @@ public:
     static Tensor<DTYPE>* Zeros(Shape *pShape, IsUseTime pAnswer = UseTime);
     static Tensor<DTYPE>* Constants(int pSize0, int pSize1, int pSize2, int pSize3, int pSize4, DTYPE constant, IsUseTime pAnswer = UseTime);
     static Tensor<DTYPE>* Constants(Shape *pShape, DTYPE constant, IsUseTime pAnswer = UseTime);
+
+    //내가 추가한거
+    static Tensor<DTYPE>* IdentityMatrix(int pSize0, int pSize1, int pSize2, int pSize3, int pSize4, IsUseTime pAnswer = UseTime);
+    //static Tensor<DTYPE>* IdentityMatrix(Shape *pShape, IsUseTime pAnswer = UseTime);
 };
 
 //////////////////////////////////////////////////////////////////////////////// for private method
@@ -1198,6 +1202,10 @@ template<typename DTYPE> Tensor<DTYPE> *Tensor<DTYPE>::Constants(Shape *pShape, 
     return temp;
 }
 
+
+
+
+
 /*!
 @brief 5차원으로 정의된 Tensor의 LongArray에 접근하기 위한 인덱스를 계산
 @details 5차원으로 정의된 Tensor에 대해, pShape와 각 축의 인덱스를 매개변수로 받아 이에 대응되는 LongArray의 원소에 접근하기 위한 인덱스 번호를 계산하여 반환한다.
@@ -1250,6 +1258,34 @@ inline unsigned int Index3D(Shape *pShape, int ch, int ro, int co) {
 */
 inline unsigned int Index2D(Shape *pShape, int ro, int co) {
     return ro * (*pShape)[1] + co;
+}
+
+
+template<typename DTYPE> Tensor<DTYPE> *Tensor<DTYPE>::IdentityMatrix(int pSize0, int pSize1, int pSize2, int pSize3, int pSize4, IsUseTime pAnswer) {
+    #ifdef __DEBUG__
+    std::cout << "Tensor<DTYPE>::IdentityMatrix()" << '\n';
+    #endif  // __DEBUG__
+
+    Shape *pShape = new Shape(pSize0, pSize1, pSize2, pSize3, pSize4);
+
+    Tensor<DTYPE> *temp = new Tensor<DTYPE>(pShape, pAnswer);
+
+    for(int ti =0; ti<pSize0; ti++){
+        for (int ba = 0; ba < pSize1; ba++) {
+            for (int ch = 0; ch < pSize2; ch++) {
+                for (int ro = 0; ro < pSize3; ro++) {
+                    for (int co = 0; co < pSize4; co++) {
+
+                        if(ro==co)
+                            (*temp)[Index5D(pShape, ti, ba, ch, ro, co)] = 1;
+
+                    }
+                }
+            }
+        }
+    }
+
+    return temp;
 }
 
 #endif  // TENSOR_H_

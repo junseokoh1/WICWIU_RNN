@@ -236,7 +236,7 @@ public:
     @param data2 비교할 값
     @return data1, data2중 더 큰 값.
     */
-    
+
     // inline DTYPE MAX(DTYPE data1, DTYPE data2) {
     //     if (data1 >= data2) return data1;
     //     else return data2;

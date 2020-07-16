@@ -176,13 +176,15 @@ template<typename DTYPE> std::vector<Tensor<DTYPE> *> *MNISTDataSet<DTYPE>::GetD
     Tensor<DTYPE> *image = Tensor<DTYPE>::Zeros(1, 1, 1, 1, DIMOFMNISTIMAGE);
     Tensor<DTYPE> *label = Tensor<DTYPE>::Zeros(1, 1, 1, 1, DIMOFMNISTLABEL);
 
+    //DIMOFMNISTIMAGE = 784로 설정되어 있음
     for (int i = 0; i < DIMOFMNISTIMAGE; i++) {
-        (*image)[i] = m_aaImage[idx][i];
+        (*image)[i] = m_aaImage[idx][i];              //tensor에 대해 [] operator를 지정해줘서 바로 m_aLongArray배열에 저장
     }
 
+    //DIMOFMNISTLABEL = 10으로 설정되어 있음!, 그래서 이건 one-hot으로!!!!
     (*label)[(int)m_aaLabel[idx][0]] = 1.f;
 
-    result->push_back(image);
+    result->push_back(image);         //push_back 함수는 vector에 있는 함수인가?
     result->push_back(label);
 
     return result;

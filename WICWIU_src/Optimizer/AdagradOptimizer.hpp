@@ -136,6 +136,7 @@ public:
      * @see int UpdateParameter(Operator<DTYPE> *pParameter, Tensor<DTYPE> *m_pGradientSquared)
      */
     virtual int UpdateParameter() {
+        //std::cout<<"AdagradOptimizer 호출 parameter 개수 : "<<m_numOfParameter<<'\n';
         if (m_epsilon == 0.f) {
             for (int i = 0; i < m_numOfParameter; i++) {
                 if ((*m_ppParameter)[i]->GetIsTrainable()) UpdateParameter((*m_ppParameter)[i]);
@@ -176,8 +177,16 @@ public:
      * @return 성공 시 TURE
      */
     int UpdateParameter(Operator<DTYPE> *pParameter, Tensor<DTYPE> *m_pGradientSquared) {
+        #if __RNNDEBUG__
+        std::cout<<"=========================AdagradOptimizer::updateParameter 호출=================="<<'\n';
+        #endif
         Tensor<DTYPE> *trainable_data = pParameter->GetResult();
         Tensor<DTYPE> *gradient       = pParameter->GetGradient();
+
+        #if __RNNDEBUG__
+          std::cout<<pParameter->GetName()<<"의 gradient값 : "<<gradient<<'\n';
+          std::cout<<"수정 전 weight값 : "<<trainable_data<<'\n';
+        #endif
 
         float signed_learning_rate = this->GetOptimizeDirection() * this->GetLearningRate();
 
@@ -187,6 +196,10 @@ public:
             (*m_pGradientSquared)[i] = ((*gradient)[i] * (*gradient)[i]);
             (*trainable_data)[i]    += (signed_learning_rate * (*gradient)[i]) / std::sqrt((*m_pGradientSquared)[i] + m_epsilon);
         }
+
+        #if __RNNDEBUG__
+          std::cout<<"수정 후 weight값 : "<<trainable_data<<'\n';
+        #endif
 
         return TRUE;
     }

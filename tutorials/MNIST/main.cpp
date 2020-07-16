@@ -77,7 +77,7 @@ int main(int argc, char const *argv[]) {
             delete temp;
 
 #ifdef __CUDNN__
-            x_t->SetDeviceGPU(GPUID);  // 異뷀썑 ?먮룞???꾩슂
+            x_t->SetDeviceGPU(GPUID);
             l_t->SetDeviceGPU(GPUID);
 #endif  // __CUDNN__
             // std::cin >> temp;
@@ -86,7 +86,9 @@ int main(int argc, char const *argv[]) {
             net->Train();
             // std::cin >> temp;
             train_accuracy += net->GetAccuracy();
+            std::cout<<"GetAccuracy 호출 성공"<<'\n';
             train_avg_loss += net->GetLoss();
+            std::cout<<"GetLoss 호출 성공"<<'\n';
 
             printf("\rTrain complete percentage is %d / %d -> loss : %f, acc : %f"  /*(ExcuteTime : %f)*/,
                    j + 1, LOOP_FOR_TRAIN,

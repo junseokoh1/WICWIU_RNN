@@ -296,7 +296,15 @@ public:
         Shape *resultTenShape = result->GetShape();
 
         int ti = pTime;
+/*
+        std::cout<<"matmul의 입력값"<<'\n';
+        std::cout<<this->GetInput()[1]->GetResult()<<'\n';
 
+        std::cout<<"matmul의 weight값"<<'\n';
+        std::cout<<this->GetInput()[0]->GetResult()<<'\n';
+
+        std::cout<<"<MatMul forward 계산>"<<'\n';
+*/
         for (int ba = 0; ba < batchsize; ba++) {
             for (int ch = 0; ch < channelsize; ch++) {
                 for (int ro = 0; ro < rowsize; ro++) {
@@ -305,6 +313,7 @@ public:
                             (*result)[Index5D(resultTenShape, ti, ba, ch, ro, co)]
                                 += (*weight)[Index5D(weightTenShape, 0, 0, 0, co, hid)]
                                    * (*input)[Index5D(inputTenShape, ti, ba, ch, ro, hid)];
+                            //std::cout<<(*result)[Index5D(resultTenShape, ti, ba, ch, ro, co)]<<" = "<<(*weight)[Index5D(weightTenShape, 0, 0, 0, co, hid)]<<" * "<<(*input)[Index5D(inputTenShape, ti, ba, ch, ro, hid)]<<'\n';
                         }
                     }
                 }
@@ -346,6 +355,9 @@ public:
         int result_index = 0;
 
         int ti = pTime;
+        //#if __RNNDEBUG__
+        //std::cout<<this->GetName()<<"의 MatMul gradient 계산 time : "<<pTime<<'\n';
+        //#endif
 
         for (int ba = 0; ba < batchsize; ba++) {
             for (int ch = 0; ch < channelsize; ch++) {
@@ -358,11 +370,18 @@ public:
 
                             (*input_delta)[input_index]      += (*weight)[weight_index] * (*this_delta)[result_index];
                             (*weight_gradient)[weight_index] += (*input)[input_index] * (*this_delta)[result_index];
+
+                          //  #if __RNNDEBUG__
+                        //    std::cout<<"index "<<ba<<ch<<ro<<co<<hid<<'\n';
+                        //    std::cout<<(*input)[input_index]<<" * "<<(*this_delta)[result_index]<<'\n';
+                        //    #endif
                         }
                     }
                 }
             }
         }
+
+        //std::cout<<this->GetName()<<"의 MatMul gradient값 time:"<<pTime<<weight_gradient<<'\n';
 
 
         return TRUE;
@@ -385,8 +404,22 @@ public:
         m_pDevInput  = input->GetGPUData(pTime);
         m_pDevOutput = result->GetGPUData(pTime);
 
+        //std::cout<<this->GetName()<<'\n';
+
+        #if __RNNDBUG__
+          std::cout<<"matmul의 입력값"<<'\n';
+          std::cout<<this->GetInput()[1]->GetResult()<<'\n';
+          std::cout<<"matmul의 weight값"<<'\n';
+          std::cout<<this->GetInput()[0]->GetResult()<<'\n';
+        #endif
+
+        //std::cout<<this->GetResult()<<'\n';   //이거는 연산 결과에 영향을 미침
+
         checkCUDNN(cudnnConvolutionForward(this->GetCudnnHandle(), &m_alpha, inputTensorDesc, m_pDevInput, filterDesc, m_pDevFilter, convDesc,
                                            m_algo, m_devWorkSpace, m_sizeInBytes, &m_beta, outputTensorDesc, m_pDevOutput));
+
+        //std::cout<<m_pDevOutput<<'\n';
+        //std::cout<<this->GetResult()<<'\n';     //이거는 연산결과에 영향을 안 미침!
 
         // checkCudaErrors(cudaDeviceSynchronize());
 
@@ -407,6 +440,11 @@ public:
         Tensor<DTYPE> *input_delta     = this->GetInput()[1]->GetDelta();
         Tensor<DTYPE> *this_delta      = this->GetDelta();
 
+        #if __RNNDBUG__
+          std::cout<<"MauMul BackpropagateOnGPU"<<'\n';
+          std::cout<<this->GetDelta()<<'\n';
+        #endif
+
         m_pDevFilter      = weight->GetGPUData(0);
         m_pDevInput       = input->GetGPUData(pTime);
         m_pDevDelta       = this_delta->GetGPUData(pTime);
@@ -418,6 +456,10 @@ public:
 
         checkCUDNN(cudnnConvolutionBackwardFilter(this->GetCudnnHandle(), &m_alpha, inputTensorDesc, m_pDevInput, deltaDesc, m_pDevDelta, convDesc,
                                                   m_filterAlgo, m_filterDevWorkSpace, m_filterSizeInBytes, &m_alpha, filterDesc, m_pDevFilterDelta));
+
+        #if __RNNDBUG__
+          std::cout<<this->GetInput()[1]->GetDelta()<<'\n';
+        #endif
 
         // checkCudaErrors(cudaDeviceSynchronize());
         return TRUE;

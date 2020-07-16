@@ -50,6 +50,7 @@ public:
     */
     int Push(DTYPE pElement) {
         try {
+            //std::cout<<"pop";
             DTYPE *temp = new DTYPE[m_size + 1];
 
             for (int i = 0; i < m_size; i++) temp[i] = m_aElement[i];

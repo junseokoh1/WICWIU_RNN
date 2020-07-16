@@ -61,10 +61,14 @@ private:
 #endif  // __CUDNN__
 
 public:
+
+    int  AddOutputEdgeRNN(Operator<DTYPE> *pOutput, Operator<DTYPE> *pop);                             //내가 추가함
+
     Operator(std::string pName = "NO NAME", int pLoadflag = TRUE);
     Operator(Operator<DTYPE> *pInput, std::string pName = "NO NAME", int pLoadflag = TRUE);
     Operator(Operator<DTYPE> *pInput0, Operator<DTYPE> *pInput1, std::string pName = "NO NAME", int pLoadflag = TRUE);
     Operator(Operator<DTYPE> *pInput0, Operator<DTYPE> *pInput1, Operator<DTYPE> *pInput2, std::string pName = "NO NAME", int pLoadflag = TRUE);
+  //  Operator(Operator<DTYPE> *pInput0, Operator<DTYPE> *pInput1, Operator<DTYPE> *pInput2, Operator<DTYPE> *pInput3, std::string pName = "NO NAME", int pLoadflag = TRUE)      //내가 추가함
     Operator(int numInput, ...);
     virtual ~Operator();
 
@@ -267,6 +271,7 @@ template<typename DTYPE> void Operator<DTYPE>::Delete() {
 template<typename DTYPE> int Operator<DTYPE>::AddInputEdge(Operator<DTYPE> *pInput) {
     try {
         m_apInput->Push(pInput);
+        //std::cout<<"========AddInputEdge"<<'\n';
     } catch (...) {
         printf("Failed to allcate memory in %s (%s %d)\n", __FUNCTION__, __FILE__, __LINE__);
         return FALSE;
@@ -284,6 +289,20 @@ template<typename DTYPE> int Operator<DTYPE>::AddInputEdge(Operator<DTYPE> *pInp
  */
 template<typename DTYPE> int Operator<DTYPE>::AddOutputEdge(Operator<DTYPE> *pOutput) {
     try {
+        m_apOutput->Push(pOutput);
+        //std::cout<<"========AddoutputEdge"<<'\n';
+    } catch (...) {
+        printf("Failed to allcate memory in %s (%s %d)\n", __FUNCTION__, __FILE__, __LINE__);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+//내가 추가함
+template<typename DTYPE> int Operator<DTYPE>::AddOutputEdgeRNN(Operator<DTYPE> *pOutput, Operator<DTYPE> *pop) {
+    try {
+        m_apOutput->Pop(pop);
         m_apOutput->Push(pOutput);
     } catch (...) {
         printf("Failed to allcate memory in %s (%s %d)\n", __FUNCTION__, __FILE__, __LINE__);
@@ -398,11 +417,31 @@ template<typename DTYPE> Operator<DTYPE>::Operator(Operator<DTYPE> *pInput0, Ope
     Alloc();
     AddEdgebetweenOperators(3, pInput0, pInput1, pInput2, pLoadflag);
 }
+/*
+template<typename DTYPE> Operator<DTYPE>::Operator(Operator<DTYPE> *pInput0, Operator<DTYPE> *pInput1, Operator<DTYPE> *pInput2, std::string pName, int pLoadflag) {
+    #ifdef __DEBUG__
+    std::cout << "Operator<DTYPE>::Operator()" << '\n';
+    #endif  // __DEBUG__
+    m_apOutput    = NULL;
+    m_apInput     = NULL;
+    m_aaResult    = NULL;
+    m_aaGradient  = NULL;
+    m_name        = pName;
+    m_Device      = CPU;
+    m_Mode        = TRAIN;
+    m_isParameter = FALSE;
+    m_isTrainable = FALSE;
+    m_idOfDevice  = -1;
+    m_Loadflag    = TRUE;
+    Alloc();
+    AddEdgebetweenOperators(3, pInput0, pInput1, pInput2, pLoadflag);
+}*/
 
 template<typename DTYPE> Operator<DTYPE>::Operator(int numInput, ...) {
     #ifdef __DEBUG__
     std::cout << "Operator<DTYPE>::Operator()" << '\n';
     #endif  // __DEBUG__
+    //std::cout << "Operator() numInput받는 생성자 호출" << '\n';
     m_apOutput    = NULL;
     m_apInput     = NULL;
     m_aaResult    = NULL;
@@ -442,6 +481,7 @@ template<typename DTYPE> Operator<DTYPE>::~Operator() {
 template<typename DTYPE> int Operator<DTYPE>::AddEdgebetweenOperators(Operator<DTYPE> *pInput) {
     this->AddInputEdge(pInput);
     pInput->AddOutputEdge(this);
+    //std::cout<<"AddEdgebetween에서 AddoutputEdge에 넘겨주는 거"<<this<<'\n';
     return TRUE;
 }
 
@@ -449,6 +489,7 @@ template<typename DTYPE> int Operator<DTYPE>::AddEdgebetweenOperators(int numInp
     #ifdef __DEBUG__
     std::cout << "Operator<DTYPE>::Alloc(Tensor<DTYPE> *)" << '\n';
     #endif  // __DEBUG__
+    //std::cout << "Operator<DTYPE>::numInput받는 AddEdgebetweenOperators" << '\n';
     Operator<DTYPE> *temp = NULL;
 
 

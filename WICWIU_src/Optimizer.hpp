@@ -265,6 +265,9 @@ template<typename DTYPE> int Optimizer<DTYPE>::GetTrainableTensorDegree() const 
  */
 template<typename DTYPE> int Optimizer<DTYPE>::ResetParameterGradient() {
     for (int i = 0; i < m_numOfParameter; i++) {
+        #if __RESET__
+        std::cout<<"Optimizer::ResetParameterGradient함수 호출 "<<i<<'\n';
+        #endif
         (*m_ppParameters)[i]->ResetGradient();
     }
 

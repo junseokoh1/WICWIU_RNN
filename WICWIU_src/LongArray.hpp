@@ -29,6 +29,10 @@ private:
 #ifdef __CUDNN__
     DTYPE **m_aaDevLongArray;
     ///< GPU메모리에 올라가있는 데이터의 주소 값. m_aaHostLongArray와 비슷한 역할을 한다.
+
+        //내가 추가한거
+        // DTYPE **seqLongArray;
+        
 #endif  // __CUDNN
 
 private:

@@ -5,6 +5,7 @@
 #include <float.h>
 
 
+
 #ifdef	_WINDOWS
 	#include <windows.h>
 #else	//	_WINDOWS
@@ -171,7 +172,7 @@ void MyPause(const char *message)
         printf("Press Enter to continue (%s)...", message);
     else
         printf("Press Enter to continue ...");
-    
+
     fflush(stdout);
     getchar();
 }
@@ -183,7 +184,7 @@ float GetSquareDistance(int dim, float *pVec1, float *pVec2)
     for(int i = 0; i < dim; i++){
         float diff = pVec1[i] - pVec2[i];
         if(!(diff * diff >= -FLT_MAX &&  diff * diff <= FLT_MAX)){
-            printf("abnormal: diff = %f, pVec1[%d] = %f, pVec2[%d] = %f", diff, i, pVec1[i], i, pVec2[i]);            
+            printf("abnormal: diff = %f, pVec1[%d] = %f, pVec2[%d] = %f", diff, i, pVec1[i], i, pVec2[i]);
             printf("Press Enter to continue... in %s", __FUNCTION__);
             fflush(stdout);
             getchar();

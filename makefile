@@ -7,13 +7,16 @@ WICWIU_LIB = lib/libwicwiu.a
 
 
 #	if CUDA device, cuda or cuDNN is not installed, disable the following line
-#ENABLE_CUDNN = -D__CUDNN__
+ENABLE_CUDNN = -D__CUDNN__
 
 #	uncomment the following to debug
 #DFLAGS = -D__DEBUG__
+#DFLAGS = -D__RNNDEBUG__
+#DFLAGS = -D__NAN__ -D__RNNDEBUG__
+#DFLAGS = -D__LOSS__
 
-INCLUDE_PATH = -I/usr/local/cuda-10.1/include
-LIB_PATH = -L. -L/usr/local/cuda-10.1/lib64
+INCLUDE_PATH = -I/usr/local/cuda-10.2/include
+LIB_PATH = -L. -L/usr/local/cuda-10.2/lib64
 
 CC = g++
 NVCC = nvcc

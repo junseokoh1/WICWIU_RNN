@@ -381,6 +381,9 @@ template<typename DTYPE> cudnnHandle_t& LossFunction<DTYPE>::GetCudnnHandle() {
 */
 template<typename DTYPE> int LossFunction<DTYPE>::ResetResult() {
     if (m_Device == CPU) {
+        #if __RESET__
+        std::cout<<"LossFunction<DTYPE>::ResetResult() 호출 "<<'\n';
+        #endif
         if (m_aResult) m_aResult->Reset();
     }
 
@@ -402,6 +405,9 @@ template<typename DTYPE> int LossFunction<DTYPE>::ResetResult() {
 */
 template<typename DTYPE> int LossFunction<DTYPE>::ResetGradient() {
     if (m_Device == CPU) {
+      #if __RESET__
+      std::cout<<"LossFunction<DTYPE>::ResetGradient() 호출 "<<'\n';
+      #endif
         if (m_aGradient) m_aGradient->Reset();
     }
 

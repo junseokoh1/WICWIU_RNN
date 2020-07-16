@@ -241,6 +241,12 @@ public:
         m_pDevRight  = right->GetGPUData(pTime);
         m_pDevOutput = result->GetGPUData(pTime);
 
+        #if __RNNDBUG__
+        std::cout<<"Addadll의 입력 값"<<'\n';
+        std::cout<<left<<'\n';
+        std::cout<<right<<'\n';
+        #endif
+
         checkCUDNN(cudnnAddTensor(this->GetCudnnHandle(),
                                   &m_alpha, leftTensorDesc, m_pDevLeft,
                                   &m_alpha, outputTensorDesc, m_pDevOutput));
@@ -248,6 +254,11 @@ public:
         checkCUDNN(cudnnAddTensor(this->GetCudnnHandle(),
                                   &m_alpha, rightTensorDesc, m_pDevRight,
                                   &m_alpha, outputTensorDesc, m_pDevOutput));
+
+        #if __RNNDBUG__
+        std::cout<<"Addall의 결과 값"<<'\n';
+        std::cout<<this->GetResult()<<'\n';
+        #endif
 
         return TRUE;
     }
@@ -536,6 +547,11 @@ public:
         m_pDevBias   = bias->GetGPUData(0);
         m_pDevOutput = result->GetGPUData(pTime);
 
+        #if __RNNDBUG__
+          std::cout<<"AddColwise의 입력 값"<<'\n';
+          std::cout<<input<<'\n';
+          std::cout<<bias<<'\n';
+        #endif
         checkCUDNN(cudnnAddTensor(this->GetCudnnHandle(),
                                   &m_alpha, inputTensorDesc, m_pDevInput,
                                   &m_alpha, outputTensorDesc, m_pDevOutput));

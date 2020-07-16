@@ -32,5 +32,13 @@
 #include "Operator/ReconstructionError.hpp"
 
 #include "Operator/Recurrent.hpp"
+#include "Operator/Hadamard.hpp"
+#include "Operator/LSTM.hpp"
+#include "Operator/LSTM2.hpp"
+#include "Operator/Minus.hpp"
+#include "Operator/GRU.hpp"
+//#include "Operator/Minus.hpp"
+#include "Operator/RecurrentCUDNN.hpp"
+#include "Operator/RecurrentCUDNN2.hpp"
 
 #endif  // __OPERATER_UTIL_H__

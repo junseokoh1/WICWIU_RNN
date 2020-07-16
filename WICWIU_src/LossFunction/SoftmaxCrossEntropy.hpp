@@ -157,6 +157,11 @@ public:
     @return LossFunction의 입력 Operator에 대한 Softmax Cross Entropy
     */
     Tensor<DTYPE>* ForwardPropagate(int pTime = 0) {
+
+        #if __LOSS__
+        std::cout<<'\n'<<"softmaxcrossentropy forward 호출 : "<<pTime<<'\n';
+        #endif
+
         Tensor<DTYPE> *input         = this->GetTensor();
         Tensor<DTYPE> *label         = this->GetLabel()->GetResult();
         Tensor<DTYPE> *softmaxresult = m_aSoftmaxResult;
@@ -168,6 +173,11 @@ public:
         int colsize     = input->GetColSize();
 
         int ti = pTime;
+
+        #if __LOSS__
+        std::cout<<"softmaxcrossentropy 의 입력값 : "<<'\n'<<input<<'\n';
+        //std::cout<<"softmaxcrossentropy 의 label 값 : "<<label<<'\n';
+        #endif
 
         for (int ba = 0; ba < batchsize; ba++) {  // thread
             sum[ti][ba] = 0.f;
@@ -205,11 +215,19 @@ public:
             end   = start + capacity;
 
             for (int i = start; i < end; i++) {
-                (*softmaxresult)[i] = (exp((*input)[i] - max[ti][ba]) + m_epsilon) / sum[ti][ba];
+                (*softmaxresult)[i] = (exp((*input)[i] - max[ti][ba]) + m_epsilon) / sum[ti][ba];           //여기서 softmax결과 값을 저장해주고
 
                 (*result)[ti * batchsize + ba] += -(*label)[i] * log((*softmaxresult)[i] + m_epsilon);
+                #if __RNNDEBUG__
+                std::cout<<(*label)[i]<<" * "<<log((*softmaxresult)[i] + m_epsilon)<<'\n';
+                #endif
             }
         }
+        #if __LOSS__
+        std::cout<<"SoftmaxCrossEntropy forward 결과값(loss값) time : "<<pTime<<'\n'<<result<<'\n';
+        #endif
+
+
 
         return result;
     }
@@ -221,6 +239,11 @@ public:
     @return NULL
     */
     Tensor<DTYPE>* BackPropagate(int pTime = 0) {
+
+        #if __RNNDEBUG__
+        std::cout<<"=============================================================softmaxcrossentropy backpropagate 호출 : "<<pTime<<"=============================================================="<<'\n';
+        #endif
+
         Tensor<DTYPE> *label         = this->GetLabel()->GetResult();
         Tensor<DTYPE> *softmaxresult = m_aSoftmaxResult;
 
@@ -242,8 +265,18 @@ public:
 
             for (int i = start; i < end; i++) {
                 (*input_delta)[i] = ((*softmaxresult)[i] - (*label)[i]);
+
+                #if __RNNDEBUG__
+                std::cout<<(*input_delta)[i]<<" = "<<(*softmaxresult)[i]<<" - "<<(*label)[i]<<'\n';
+                #endif
             }
         }
+
+        //std::cout<<"연결되어 있는 operator의 이름"<<this->GetOperator()->GetName()<<'\n';  //결과 : Recur_1
+
+        #if __RNNDEBUG__
+          std::cout<<"softmaxcrossentropy BackPropagate에서 입력에 해당하는 operator에 넘겨주는 delta : "<<'\n'<<input_delta<<'\n';
+        #endif
 
         return NULL;
     }
