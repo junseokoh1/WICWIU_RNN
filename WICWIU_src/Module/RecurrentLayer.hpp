@@ -56,11 +56,11 @@ public:
         //recurrent 내에 bias 추가 하는 거!
         Tensorholder<DTYPE> *rBias = new Tensorholder<DTYPE>(Tensor<DTYPE>::Constants(1, 1, 1, 1, hiddensize, 0.f), "RNN_Bias_" + pName);
 
-        out = new SeqRecurrent<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias);
+        //out = new SeqRecurrent<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias);
         //out = new RecurrentCUDNN2<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias);                   //gpu 사용할때는 이걸!!!
 
         //initHidden값이 NULL이면 내부에서 알아서 처리해주지!!!
-        //out = new SeqRecurrent<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias, initHidden);
+        out = new SeqRecurrent<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias, initHidden);
 
 
         //매우매우 중요!!!!! cudnn 때문에 hidden2out, bias 부분 없애줌 -> BPTT에서 호출을 딱 한번만 해서!!!    cudnn에서 처리해주는건 아닌데... 일단은 결과 보려고 하는거!...

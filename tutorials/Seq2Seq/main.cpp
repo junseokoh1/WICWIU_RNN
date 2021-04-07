@@ -13,10 +13,10 @@
 
 using namespace std;
 
-#define EMBEDDIM               128            // 이걸 늘리면 segfault가 발생하는데... 이상하네....
+#define EMBEDDIM               100            // 이걸 늘리면 segfault가 발생하는데... 이상하네....
 // #define ENCODER_TIME           3
 // #define DECODER_TIME           4
-#define BATCH                  32
+#define BATCH                  16
 #define EPOCH                  10
 #define MAX_TRAIN_ITERATION    500   // (60000 / BATCH)
 #define MAX_TEST_ITERATION     5   // (10000 / BATCH)
@@ -35,7 +35,7 @@ int main(int argc, char const *argv[]) {
     double  nProcessExcuteTime = 0;
 
     //RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/eng-fra_short.txt", "eng", "fra");      //input 2개는 확인해 봤지만 label은 확인하지 못함!
-    RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/test3.txt", "eng", "fra");
+    RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/test2.txt", "eng", "fra");
     //RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/test2.txt", "eng", "fra");
     //RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/padding_test.txt", "eng", "fra");
     translation_data->BuildVocab();
