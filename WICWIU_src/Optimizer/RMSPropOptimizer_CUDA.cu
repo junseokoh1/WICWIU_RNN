@@ -88,6 +88,10 @@ template<typename DTYPE> int RMSPropOptimizer<DTYPE>::UpdateParameterOnGPU(Opera
     Tensor<DTYPE> *trainable_data = pParameter->GetResult();
     Tensor<DTYPE> *gradient       = pParameter->GetGradient();
 
+    // std::cout<<"RMSProp updataParameter  "<<pParameter->GetName()<<'\n';
+    // std::cout<<gradient->GetShape()<<'\n';
+    // std::cout<<gradient<<'\n';
+
     DTYPE *m_pDevData          = trainable_data->GetGPUData();
     DTYPE *m_pDevGrad          = gradient->GetGPUData();
     DTYPE *m_pDevMeanSquared   = pMeanSquared->GetGPUData();

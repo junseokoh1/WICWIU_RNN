@@ -3,6 +3,8 @@
 
 #include "Utils.hpp"
 #include "Optimizer_utils.hpp"
+#include <fstream>
+#include <map>
 
 /*!
  * @class NeuralNetwork 뉴럴 네트워크 모델 생성, 학습 및 평가를 총괄하는 클래스
@@ -61,11 +63,22 @@ public:
     int                  TrainOnGPU();
     int                  TestOnGPU();
 
-    float                GetAccuracy(int numOfClass = 10);
+    float                GetAccuracy(int numOfClass = 10, Tensor<DTYPE> *Lengths = NULL);               //padding 때문에 수정함!
+    //내가 추가한거!!!
+    float                GetIndexAccuracy();              //embedding 때문에 추가함!!!!
+    void                 GetEmbeddingResult(std::string *vocab);
+    void                 GetCharResult(char *vocab);
+    int                  GenerateSentence(int maxTimeSize, char* vocab, int startIndex, int vocabSize);
+    int                  GenerateSentence(int maxTimeSize, std::string* vocab, int startIndex, int numOfClass);
+    int                  GenerateSentence(int maxTimeSize, std::map<int, std::string>* Index2Vocab, int startIndex, int vocabSize);               //textdataset 통합하면서 수정!
+    int                  SentenceTranslate(std::map<int, std::string>* index2vocab);
+
+
+
     int                  GetMaxIndex(Tensor<DTYPE> *data, int ba, int ti, int numOfClass);
     float                GetTop5Accuracy(int numOfClass);
     void                 GetTop5Index(Tensor<DTYPE> *data, int *top5Index, int ba, int ti, int numOfClass);
-    float                GetLoss();
+    float                GetLoss(Tensor<DTYPE> *Lengths =NULL);                                                                           //padding 때문에 내가 수정함!!!!!! 수정수정!!
 
     void                 PrintGraphInformation();
 
@@ -87,6 +100,7 @@ public:
     int                  BPTT_Test(int timesize);
     int                  BPTT_TestOnCPU(int timesize);
     int                  BPTT_TestOnGPU(int timesize);
+    int                  seq2seqBPTT(int EncTimeSize, int DecTimeSize);
 
 
 #ifdef __CUDNN__
@@ -168,9 +182,10 @@ template<typename DTYPE> void NeuralNetwork<DTYPE>::DeleteOnGPU() {
  * @see NeuralNetwork<DTYPE>::Alloc()
  */
 template<typename DTYPE> NeuralNetwork<DTYPE>::NeuralNetwork() : Module<DTYPE>() {
-    #ifdef __DEBUG__
+//    #ifdef __DEBUG__
     std::cout << "NeuralNetwork<DTYPE>::NeuralNetwork()" << '\n';
-    #endif  // __DEBUG__
+//    #endif  // __DEBUG__
+std::cout<<this<<'\n';
 
     m_aLossFunction = NULL;
     m_aOptimizer    = NULL;
@@ -334,12 +349,13 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::TrainOnCPU() {
     m_aLossFunction->ForwardPropagate();
     m_aLossFunction->BackPropagate();
     this->BackPropagate();
-
     m_aOptimizer->UpdateParameter();
 
     return TRUE;
 }
 
+
+//seq-to-seq 만들기 전 BPTT! RNN, LSTMT, GRU 예제는 이 BPTT를 사용해야 함!!!
 
 template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTTOnCPU(int timesize) {
     // this->ResetOperatorResult();
@@ -368,7 +384,11 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTTOnCPU(int timesize) {
     return TRUE;
 }
 
+
+
+/*
 // 중복 계산 존재
+// 이거 결국은 오류있어서 실패했던걸로 기억함...
 template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTTOnCPU(int timesize, int truncated_size) {
 
     this->ResetResult();
@@ -398,7 +418,7 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTTOnCPU(int timesize, int t
 
     return TRUE;
 }
-
+*/
 
 
 template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTT_TestOnCPU(int timesize) {
@@ -414,6 +434,319 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTT_TestOnCPU(int timesize) 
 }
 
 
+//sentence generation를 위한 함수!!! -- word 단위를 위한 함수!
+//loss를 계산할 필요가 없음!
+//startWord 처리 안함!
+template<typename DTYPE> int NeuralNetwork<DTYPE>::GenerateSentence(int maxTimeSize, std::string* vocab, int startIndex, int vocabSize) {
+
+      std::ofstream fout("result/test566GRU.txt", std::ios::app);
+      fout<<'\n'<<"새로운 시작!"<<'\n';
+      //fout.open("write.txt");
+
+      this->ResetResult();
+      this->ResetLossFunctionResult();
+
+      //결과값에 접근하기 위한 방법!
+      Tensor<DTYPE> *pred = GetResultOperator()->GetResult();
+      Shape *predShape  = pred->GetShape();
+
+      //입력에 접근하기 위한 방법!
+      Tensor<DTYPE> *input  = this->GetInput()[0]->GetResult();
+      Shape *inputShape = input->GetShape();
+
+      //startChar 설정해주기
+      (*input)[Index5D(inputShape, 0, 0, 0, 0, 0)] = startIndex;
+
+
+      for(int ti=0; ti<maxTimeSize; ti++){
+          this->ForwardPropagate(ti);
+
+          int pred_index = GetMaxIndex(pred, 0, ti, vocabSize);
+
+          //EOS이면 끝내기!
+          if( pred_index == vocabSize-1)   //textDataset에서 이렇게 해둔거임...
+            break;
+
+          //결과값 입력값으로 복사!
+          if(ti != maxTimeSize-1){
+              (*input)[Index5D(inputShape, ti+1, 0, 0, 0, 0)] = pred_index;
+          }
+
+          //결과값 출력하기
+          std::cout<<vocab[pred_index];
+
+
+          if(fout.is_open()){
+              fout<<vocab[pred_index];
+          }
+
+      }
+      std::cout<<'\n';
+
+      fout.close();
+
+      return TRUE;
+}
+
+
+
+//char단위로 generate하는 함수!
+template<typename DTYPE> int NeuralNetwork<DTYPE>::GenerateSentence(int maxTimeSize, char* vocab, int startIndex, int vocabSize) {
+
+    std::ofstream fout("result/Elast2LSTMB1.txt", std::ios::app);
+    fout<<'\n'<<"새로운 시작!"<<'\n';
+    //fout.open("write.txt");
+
+    this->ResetResult();
+    this->ResetLossFunctionResult();
+
+    //결과값에 접근하기 위한 방법!
+    Tensor<DTYPE> *pred = GetResultOperator()->GetResult();
+    Shape *predShape  = pred->GetShape();
+    //int batchsize = pred->GetBatchSize();
+    //int timesize  = pred->GetTimeSize();
+    //int numOfClass = pred->GetColSize();
+
+    //입력에 접근하기 위한 방법!
+    Tensor<DTYPE> *input  = this->GetInput()[0]->GetResult();
+    Shape *inputShape = input->GetShape();
+
+    //startChar 설정해주기
+    (*input)[Index5D(inputShape, 0, 0, 0, 0, 0)] = startIndex;
+
+
+    for(int ti=0; ti<maxTimeSize; ti++){
+
+        this->ForwardPropagate(ti);
+
+
+        int pred_index = GetMaxIndex(pred, 0, ti, vocabSize);
+
+        //EOS이면 끝내기!
+        if( pred_index == vocabSize-1)   //textDataset에서 이렇게 해둔거임...    수정해야됨!
+          break;
+
+        //결과값 입력값으로 복사!
+        if(ti != maxTimeSize-1){
+            (*input)[Index5D(inputShape, ti+1, 0, 0, 0, 0)] = pred_index;
+        }
+
+        //결과값 출력하기
+        // std::cout<<vocab[pred_index];
+
+
+        if(fout.is_open()){
+            //fout.write(vocab[pred_index], 1);
+            fout<<vocab[pred_index];
+        }
+
+    }
+
+    fout.close();
+
+    return TRUE;
+}
+
+
+//FinalTextDataset으로 이제 Dataset 전처리 하는걸 다 통합하면서 새로만드는 generator 함수
+template<typename DTYPE> int NeuralNetwork<DTYPE>::GenerateSentence(int maxTimeSize, std::map<int, std::string>* m_pIndex2Vocab, int startIndex, int vocabSize) {
+
+    std::ofstream fout("result/GRU_GPU_20210405.txt", std::ios::app);
+    fout<<'\n'<<'\n'<<"새로운 시작!"<<'\n';
+    //fout.open("write.txt");
+
+    this->ResetResult();
+    this->ResetLossFunctionResult();
+
+    //결과값에 접근하기 위한 방법!
+    Tensor<DTYPE> *pred = GetResultOperator()->GetResult();
+    Shape *predShape  = pred->GetShape();
+    //int batchsize = pred->GetBatchSize();
+    //int timesize  = pred->GetTimeSize();
+    //int numOfClass = pred->GetColSize();
+
+    //입력에 접근하기 위한 방법!
+    Tensor<DTYPE> *input  = this->GetInput()[0]->GetResult();
+    Shape *inputShape = input->GetShape();
+
+    //startChar 설정해주기
+    (*input)[Index5D(inputShape, 0, 0, 0, 0, 0)] = startIndex;
+
+
+    for(int ti=0; ti<maxTimeSize; ti++){
+#ifdef __CUDNN__
+        this->ForwardPropagateOnGPU(ti);
+#else
+        this->ForwardPropagate(ti);
+#endif  // if __CUDNN__
+
+        int pred_index = GetMaxIndex(pred, 0, ti, vocabSize);
+
+        //EOS이면 끝내기!
+        if( pred_index == vocabSize-1)   //textDataset에서 이렇게 해둔거임...    수정해야됨!
+          break;
+
+        //결과값 입력값으로 복사!
+        if(ti != maxTimeSize-1){
+            (*input)[Index5D(inputShape, ti+1, 0, 0, 0, 0)] = pred_index;
+        }
+
+        //결과값 출력하기
+         //std::cout<<m_pIndex2Vocab->at(pred_index)<<" ";
+
+        //std::cout<<ti<<" : "<<m_pIndex2Vocab->at(pred_index)<<'\n';
+
+
+        if(fout.is_open()){
+            //fout.write(vocab[pred_index], 1);
+            fout<<m_pIndex2Vocab->at(pred_index)<<" ";
+        }
+
+    }
+
+    fout.close();
+
+    //test 완료후 reset
+    this->ResetResult();
+
+    return TRUE;
+}
+
+
+
+//seq 2 seq  때문에 추가*************************************************************************************************************************
+
+
+//seq-to-seq때문에 추가한 BPTT 잘 동작하면 RNN,LSTM,GRU로 이 함수를 사용하도록 수정!
+/*
+template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTTOnCPU(int timesize) {
+
+    this->ResetResult();
+    this->ResetGradient();
+    this->ResetLossFunctionResult();
+    this->ResetLossFunctionGradient();
+
+    this->ForwardPropagate();
+    for(int i=0; i<timesize; i++)
+      m_aLossFunction->ForwardPropagate(i);
+
+    for(int j=timesize-1; j>=0; j--)
+      m_aLossFunction->BackPropagate(j);
+    this->BackPropagate();
+
+    m_aOptimizer->UpdateParameter();
+
+    return TRUE;
+}
+*/
+
+template<typename DTYPE> int NeuralNetwork<DTYPE>::seq2seqBPTT(int EncTimeSize, int DecTimeSize) {
+
+    this->ResetResult();
+    this->ResetGradient();
+    this->ResetLossFunctionResult();
+    this->ResetLossFunctionGradient();
+
+    Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
+
+    //encoder forward
+    for(int i =0; i<EncTimeSize; i++)
+        (*ExcutableOperator)[0]->ForwardPropagate(i);
+
+    //Decoder & lossfunction forward
+    for(int i=0; i<DecTimeSize; i++){
+      (*ExcutableOperator)[1]->ForwardPropagate(i);
+      m_aLossFunction->ForwardPropagate(i);
+    }
+
+    //Decoder & loss function backward
+    for(int j=DecTimeSize-1; j>=0; j--){
+      m_aLossFunction->BackPropagate(j);
+      (*ExcutableOperator)[1]->BackPropagate(j);
+    }
+
+    //Encoder backward
+    for(int j=EncTimeSize-1; j>=0; j--){
+      (*ExcutableOperator)[0]->BackPropagate(j);
+    }
+
+    m_aOptimizer->UpdateParameter();
+
+    return TRUE;
+}
+
+
+//seq2seq에서 사용하기 위한 test code
+
+//
+template<typename DTYPE> int NeuralNetwork<DTYPE>::SentenceTranslate(std::map<int, std::string>* index2vocab){
+
+
+    //Result
+    Tensor<DTYPE> *pred = this->GetResult();
+
+    //DecoderInput
+    Tensor<DTYPE> *DecoderInput = this->GetInput()[1]->GetResult();
+    Shape *InputShape = DecoderInput->GetShape();
+
+    //encoder, decoder time size
+    int EncoderTimeSize = this->GetInput()[0]->GetResult()->GetTimeSize();
+    int DecoderTimeSize = DecoderInput->GetTimeSize();
+
+    //Encoder, Decoder module access
+    int numOfExcutableOperator = this->GetNumOfExcutableOperator();
+    Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
+
+    // std::cout<<"num : "<<numOfExcutableOperator<<'\n';
+    // std::cout<<(*ExcutableOperator)[0]->GetName()<<'\n';
+    // std::cout<<(*ExcutableOperator)[1]->GetName()<<'\n';
+
+    //encoder forward
+    for(int ti = 0; ti < EncoderTimeSize; ti++)
+        (*ExcutableOperator)[0]->ForwardPropagate(ti);
+
+    //decoder input holder tensor에 접근해서?....
+    // shape : [DecoderTime, BATCH, 1, 1, 1]
+
+    //첫번째 입력은 SOS
+    (*DecoderInput)[0] = 1;
+
+    for(int ti = 0; ti < DecoderTimeSize; ti++){
+
+        //decoder forward
+        (*ExcutableOperator)[1]->ForwardPropagate(ti);
+
+        int pred_index = GetMaxIndex(pred, 0, ti, pred->GetColSize());
+
+        //출력하기!
+        std::cout<<pred_index<<" : ";
+        std::cout<<index2vocab->at(pred_index)<<'\n';
+
+
+        //EOS이면 끝내기!
+        if( pred_index == 2)
+          break;
+
+        //결과값 입력값으로 복사!
+        if(ti != DecoderTimeSize-1){
+            (*DecoderInput)[Index5D(InputShape, ti+1, 0, 0, 0, 0)] = pred_index;
+        }
+
+    }
+
+    //test 완료후 reset
+    this->ResetResult();
+
+    //(*decoder_x_holder0[Index5D(DecoderInputShape, 0, 0, 0, 0, 0)])
+
+    // std::cout<<(*ExcutableOperator)[1]->GetNumOfExcutableOperator()<<'\n';
+
+    //std::cout<<"SentenceTranslate 완료"<<'\n';
+
+}
+
+
+//seq 2 seq  때문에 추가*************************************************************************************************************************
 
 /*!
  * @brief CPU를 활용해 신경망을 테스트하는 메소드
@@ -476,12 +809,20 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::TrainOnGPU() {
 //     this->ResetLossFunctionGradient();
 //
 //     for(int i=0; i<timesize; i++){
-//       //std::cout<<"time = "<<i<<'\n';
 //       this->ForwardPropagateOnGPU(i);
+//       // m_aLossFunction->ForwardPropagateOnGPU(i);
+//     }
+//
+//     for(int i=0; i<timesize; i++){
 //       m_aLossFunction->ForwardPropagateOnGPU(i);
 //     }
+//
 //     for(int j=timesize-1; j>=0; j--){
 //       m_aLossFunction->BackPropagateOnGPU(j);
+//       // this->BackPropagateOnGPU(j);
+//     }
+//
+//     for(int j=timesize-1; j>=0; j--){
 //       this->BackPropagateOnGPU(j);
 //     }
 //
@@ -497,29 +838,74 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::TrainOnGPU() {
 
 
 //수정해본거
+// template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTTOnGPU(int timesize) {
+// #ifdef __CUDNN__
+//     #ifdef __RNNDBUG__
+//       std::cout<<"BPTTOnGPU함수 호출"<<'\n';
+//     #endif
+//     this->ResetResult();
+//     this->ResetGradient();
+//     this->ResetLossFunctionResult();
+//     this->ResetLossFunctionGradient();
+//
+//
+//     this->ForwardPropagateOnGPU();
+//     for(int i=0; i<timesize; i++){
+//       m_aLossFunction->ForwardPropagateOnGPU(i);
+//     }
+//
+//     for(int j=timesize-1; j>=0; j--){
+//       m_aLossFunction->BackPropagateOnGPU(j);
+//     }
+//
+//     this->BackPropagateOnGPU();
+//
+//     m_aOptimizer->UpdateParameterOnGPU();
+// #else  // __CUDNN__
+//     std::cout << "There is no GPU option!" << '\n';
+//     exit(-1);
+// #endif  // __CUDNN__
+//
+//     return TRUE;
+// }
+
+
+//cudnn 문제때문에 추가!   - 방법1 NeuralNetwork에서 처리하려는 시도!
+//이렇게 하면... 안됨...
 template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTTOnGPU(int timesize) {
 #ifdef __CUDNN__
-    #ifdef __RNNDBUG__
-      std::cout<<"BPTTOnGPU함수 호출"<<'\n';
-    #endif
-    this->ResetResult();
-    this->ResetGradient();
-    this->ResetLossFunctionResult();
-    this->ResetLossFunctionGradient();
+      this->ResetResult();
+      this->ResetGradient();
+      this->ResetLossFunctionResult();
+      this->ResetLossFunctionGradient();
 
+      Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
+      int numOfExcutableOperator = this->GetNumOfExcutableOperator();
 
-    this->ForwardPropagateOnGPU();
-    for(int i=0; i<timesize; i++){
-      m_aLossFunction->ForwardPropagateOnGPU(i);
-    }
+      for(int op = 0; op < numOfExcutableOperator; op++){
+          //std::cout<<(*ExcutableOperator)[op]->GetName()<<'\n';
+          for(int ti = 0; ti < timesize; ti ++)
+            (*ExcutableOperator)[op]->ForwardPropagateOnGPU(ti);
+      }
 
-    for(int j=timesize-1; j>=0; j--){
-      m_aLossFunction->BackPropagateOnGPU(j);
-    }
+      //lossfunction forward
+      for(int i=0; i<timesize; i++){
+        m_aLossFunction->ForwardPropagateOnGPU(i);
+      }
 
-    this->BackPropagateOnGPU();
+      //loss function backward
+      for(int j=timesize-1; j>=0; j--){
+        m_aLossFunction->BackPropagateOnGPU(j);
+      }
 
-    m_aOptimizer->UpdateParameterOnGPU();
+      for(int op = numOfExcutableOperator-1 ; op >= 0; op--){
+          for(int j=timesize-1; j>=0; j--){
+            (*ExcutableOperator)[op]->BackPropagateOnGPU(j);
+          }
+      }
+
+      m_aOptimizer->UpdateParameterOnGPU();
+
 #else  // __CUDNN__
     std::cout << "There is no GPU option!" << '\n';
     exit(-1);
@@ -527,6 +913,40 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTTOnGPU(int timesize) {
 
     return TRUE;
 }
+
+// //방법2! - module에서 처리하기!!!
+// template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTTOnGPU(int timesize) {
+//   #ifdef __CUDNN__
+//       this->ResetResult();
+//       this->ResetGradient();
+//       this->ResetLossFunctionResult();
+//       this->ResetLossFunctionGradient();
+//
+//
+//       this->BPTTForwardPropagateOnGPU(timesize);                                        //새로운 함수를 만든거!!!
+//
+//
+//       for(int i=0; i<timesize; i++){
+//         m_aLossFunction->ForwardPropagateOnGPU(i);
+//       }
+//
+//       for(int j=timesize-1; j>=0; j--){
+//         m_aLossFunction->BackPropagateOnGPU(j);
+//         // this->BackPropagateOnGPU(j);
+//       }
+//
+//
+//       this->BPTTBackPropagateOnGPU(timesize);
+//
+//
+//       m_aOptimizer->UpdateParameterOnGPU();
+//   #else  // __CUDNN__
+//       std::cout << "There is no GPU option!" << '\n';
+//       exit(-1);
+//   #endif  // __CUDNN__
+//
+//       return TRUE;
+// }
 
 /*!
  * @brief GPU를 활용해 신경망을 테스트하는 메소드
@@ -572,11 +992,13 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTT_TestOnGPU(int timesize) 
  * @param numOfClass 데이터의 분류(Classification)에 이용되는 label의 개수
  * @return 신경망의 Top 1 Accuracy : 0. ~ 1.
  */
-template<typename DTYPE> float NeuralNetwork<DTYPE>::GetAccuracy(int numOfClass) {
+ //padding도 처리할 수 있도록 수정!!!
+template<typename DTYPE> float NeuralNetwork<DTYPE>::GetAccuracy(int numOfClass, Tensor<DTYPE> *Lengths) {
 
     //GetResultOperator Loss전에 값을 갖고옴
     Operator<DTYPE> *result = GetResultOperator();
     Operator<DTYPE> *label  = m_aLossFunction->GetLabel();
+    //Operator<DTYPE> *label  = this->GetInput()[1];
 
     int batchsize = label->GetResult()->GetBatchSize();
     int timesize  = label->GetResult()->GetTimeSize();
@@ -585,10 +1007,16 @@ template<typename DTYPE> float NeuralNetwork<DTYPE>::GetAccuracy(int numOfClass)
     Tensor<DTYPE> *ans  = label->GetResult();
 
     //GetMaxIndex를 해서 Loss전에 값을 값고와도 상관없음
-    //std::cout<<"GetAccuracy함수 호출"<<'\n';
-    //std::cout<<"model 계산값 : "<<pred<<'\n';
-    //std::cout<<"label : "<<ans<<'\n';
+    // std::cout<<'\n'<<"GetAccuracy함수 호출"<<'\n';
+    // std::cout<<"model 계산값 : "<<pred<<'\n';
+    // std::cout<<"label : "<<ans<<'\n';
 
+    // std::cout<<"numOfClass : "<<numOfClass<<'\n';
+    //
+    // std::cout<<"timesize : "<<timesize<<'\n';
+    // std::cout<<"batchsize : "<<batchsize<<'\n';
+    //
+    // std::cout<<"result의 shape : "<<result->GetResult()->GetShape()<<'\n';
 
     float accuracy = 0.f;
 
@@ -596,23 +1024,141 @@ template<typename DTYPE> float NeuralNetwork<DTYPE>::GetAccuracy(int numOfClass)
     int ans_index  = 0;
     // printf("\n\n");
 
-    //
+
+    int totalTimeSize = 0;
+
     for (int ba = 0; ba < batchsize; ba++) {
+
+        if( Lengths != NULL){
+          timesize = (*Lengths)[ba];
+          totalTimeSize += timesize;
+        }
+
         for (int ti = 0; ti < timesize; ti++) {
+
+            // std::cout<<"ba : "<<ba<<"  ti : "<<ti<<'\n';
+
+            // std::cout<<ba<<"번째"<<'\n';
+
             pred_index = GetMaxIndex(pred, ba, ti, numOfClass);
+            //std::cout<<"             pred_index : "<<pred_index<<'\n';
             ans_index  = GetMaxIndex(ans, ba, ti, numOfClass);
-            // printf("%d, ", ans_index);
+            //std::cout<<"             ans_index : "<<ans_index<<'\n';
+             // printf("%d, ", ans_index);
 
             if (pred_index == ans_index) {
                 accuracy += 1.f;
             }
         }
     }
-    // printf("\n\n");
 
-    // return (float)((accuracy / 1) / 1);
+    // std::cout<<"time size : "<<timesize<<'\n';
+    // std::cout<<accuracy<<" "<<batchsize<<'\n';
+
+    if(Lengths != NULL)
+        return (float)(accuracy / totalTimeSize );
+    return (float)((accuracy / timesize) / batchsize);          //batch 달라지면 문제 생김!!!
+
+}
+
+
+
+//Embedding Test때문에 추가한 함수!!!!!!!!!!!!!!
+//max가 필요없어서! 결과가 아예 index로 나와서 사용하는거!
+template<typename DTYPE> float NeuralNetwork<DTYPE>::GetIndexAccuracy() {
+
+    // std::cout<<'\n'<<"GetEmbeddingAccuracy"<<'\n';
+
+    Operator<DTYPE> *result = GetResultOperator();
+    Operator<DTYPE> *label  = m_aLossFunction->GetLabel();
+    int batchsize = label->GetResult()->GetBatchSize();
+    int timesize  = label->GetResult()->GetTimeSize();
+
+    Tensor<DTYPE> *pred = result->GetResult();
+    Tensor<DTYPE> *ans  = label->GetResult();
+    Shape *predShape  = pred->GetShape();
+    Shape *ansShape  = ans->GetShape();
+
+    // std::cout<<ans<<'\n';
+
+    float accuracy = 0.f;
+    int pred_index = 0;
+    int ans_index  = 0;
+
+    for (int ba = 0; ba < batchsize; ba++) {
+        for (int ti = 0; ti < timesize; ti++) {
+            pred_index = (*pred)[Index5D(predShape, ti, ba, 0, 0, 0)];
+            ans_index  = (*ans)[Index5D(ansShape, ti, ba, 0, 0, 0)];
+
+            if (pred_index == ans_index) {
+                accuracy += 1.f;
+            }
+
+            // std::cout<<'\n'<<"pred_index : "<<pred_index<<"  ans_index : "<<ans_index<<'\n';
+        }
+    }
     return (float)((accuracy / timesize) / batchsize);
 }
+
+//내가 그냥 결과 어떻게 되나 확인하고 싶어서 만든 함수!!!
+template<typename DTYPE> void NeuralNetwork<DTYPE>::GetEmbeddingResult(std::string* vocab) {
+
+  Operator<DTYPE> *result = GetResultOperator();
+  Operator<DTYPE> *label  = m_aLossFunction->GetLabel();
+  int batchsize = label->GetResult()->GetBatchSize();
+  int timesize  = label->GetResult()->GetTimeSize();
+
+  Tensor<DTYPE> *pred = result->GetResult();
+  Tensor<DTYPE> *ans  = label->GetResult();
+  Shape *predShape  = pred->GetShape();
+  Shape *ansShape  = ans->GetShape();
+
+
+  int pred_index = 0;
+  int ans_index  = 0;
+
+  for (int ba = 0; ba < batchsize; ba++) {
+      for (int ti = 0; ti < timesize; ti++) {
+          pred_index = (*pred)[Index5D(predShape, ti, ba, 0, 0, 0)];
+          ans_index  = (*ans)[Index5D(ansShape, ti, ba, 0, 0, 0)];
+          //여기서는 pred_index가 int인 이유!... skipgram 학습에 사용된게 아니라!
+          //my_EmbeddingTest net을 사용해서 int만 나올 수 있음!!!
+          std::cout<<'\n'<<"pred word : "<<vocab[pred_index]<<'\n';
+          std::cout<<"answer word : "<<vocab[ans_index]<<'\n';
+      }
+  }
+
+}
+
+//RNN에서 결과 확인하려고 만든 함수!!!
+template<typename DTYPE> void NeuralNetwork<DTYPE>::GetCharResult(char* vocab) {
+
+  Operator<DTYPE> *result = GetResultOperator();
+  int batchsize = result->GetResult()->GetBatchSize();
+  int timesize  = result->GetResult()->GetTimeSize();
+  int numOfClass = result->GetResult()->GetColSize();
+
+  Tensor<DTYPE> *pred = result->GetResult();
+  Shape *predShape  = pred->GetShape();
+
+  //Dimension is [389, 1, 1, 1, 31, ]
+  //std::cout<<predShape<<'\n';
+
+  int pred_index = 0;
+
+  for (int ba = 0; ba < batchsize; ba++) {
+      for (int ti = 0; ti < timesize; ti++) {
+          //maxIndex를 해줘야됨!
+          pred_index = GetMaxIndex(pred, ba, ti, numOfClass);
+    //      std::cout<<"???  "<<pred_index<<'\n';       //이게왜... 음수값이 나오지?....
+          std::cout<<vocab[pred_index];
+      }
+  }
+
+}
+
+
+
 
 /*!
  * @brief Tensor의 LongArray의 Element들 중 가장 큰 값의 인덱스를 계산해 반환하는 메소드
@@ -746,7 +1292,8 @@ template<typename DTYPE> void NeuralNetwork<DTYPE>::GetTop5Index(Tensor<DTYPE> *
  * @brief 데이터에 대해 학습된 신경망의 평균 Loss를 계산하여 반환하는 메소드
  * @return 학습된 신경망의 평균 Loss
  */
-
+ // 2021년 3월 19일 이전에 사용하던 loss!
+/*
 template<typename DTYPE> float NeuralNetwork<DTYPE>::GetLoss() {
     float avg_loss = 0.f;
 
@@ -757,33 +1304,65 @@ template<typename DTYPE> float NeuralNetwork<DTYPE>::GetLoss() {
     //std::cout<<"GetLoss에서 batch, time size : "<<batchsize<<"  "<<timesize<<'\n';
 
     //(*m_aLossFunction)[ba] []이 연산 그냥 tensor인 m_aResult에서 갖고오는거임
-    //loss값 출력
-    //loss값 잘 갖고옴!!!
     #if __LOSS__
-    std::cout<<"GetLoss함수에서 갖고오는 loss값 "<<'\n'<<m_aLossFunction->GetResult()<<'\n';
+    std::cout<<'\n'<<"GetLoss함수에서 갖고오는 loss값 "<<'\n'<<m_aLossFunction->GetResult()<<'\n';
     #endif
 
 
-    for (int ti = 0; ti < timesize; ti++) {
-        for (int ba = 0; ba < batchsize; ba++) {
-            //std::cout<<"m_aLossFunction "<<ba<<" : "<<(*m_aLossFunction)[ba]<<'\n';
-            //avg_loss += (*m_aLossFunction)[ba] / batchsize / timesize;                                         //기존에 있던거!
-            //avg_loss += (*m_aLossFunction)[batchsize*ba + ti] / batchsize / timesize;
-            avg_loss += (*m_aLossFunction)[batchsize*ti + ba] / batchsize / timesize;                   //뭐가 맞는걸까...
-            //std::cout<<batchsize*ti + ba<<'\n';
-            //avg_loss += (*m_aLossFunction)[batchsize*ba + ti] ;/// batchsize / timesize;
+    for (int ba = 0; ba < batchsize; ba++) {
+        for (int ti = 0; ti < timesize; ti++) {
+            //std::cout<<"ba : "<<ba<<" ti : "<<ti<<'\n';
+            //std::cout<<(*m_aLossFunction)[batchsize*ti + ba]<<'\n';
+            avg_loss += (*m_aLossFunction)[batchsize*ti + ba] / batchsize / timesize;
         }
     }
 
-    if(avg_loss < 0){
-        std::cout<<"GetLoss함수에서 갖고오는 loss값 "<<'\n'<<m_aLossFunction->GetResult()<<'\n';
-        exit(0);
-    }
-
-    //std::cout<<"GetLoss함수에서 갖고오는 loss값 "<<'\n'<<m_aLossFunction->GetResult()<<'\n';
+    // if(avg_loss < 0){
+    //     std::cout<<"GetLoss함수에서 갖고오는 loss값 "<<'\n'<<m_aLossFunction->GetResult()<<'\n';
+    //     exit(0);
+    // }
 
     return avg_loss;
 }
+*/
+
+//padding 처리하는 부분 때문에 추가함!
+//Decoder lengths를 넘겨주면됨!!!
+//NULL로 처리해서 그냥 하나로 합치는것도 가능! 그래서 그냥 하나로 합침!
+//잘 작동함!!!
+template<typename DTYPE> float NeuralNetwork<DTYPE>::GetLoss(Tensor<DTYPE> *Lengths) {
+    float avg_loss = 0.f;
+
+    int batchsize = m_aLossFunction->GetResult()->GetBatchSize();
+    int timesize  = m_aLossFunction->GetResult()->GetTimeSize();
+
+    //batch, timesize는 맞게 잘 들어감
+    //std::cout<<"GetLoss에서 batch, time size : "<<batchsize<<"  "<<timesize<<'\n';
+
+    //(*m_aLossFunction)[ba] []이 연산 그냥 tensor인 m_aResult에서 갖고오는거임
+    #if __LOSS__
+    std::cout<<'\n'<<"GetLoss함수에서 갖고오는 loss값 "<<'\n'<<m_aLossFunction->GetResult()<<'\n';
+    #endif
+
+    for (int ba = 0; ba < batchsize; ba++) {
+        if(Lengths != NULL)
+           timesize = (*Lengths)[ba];
+        //std::cout<<"timesize : "<<timesize<<'\n';
+        for (int ti = 0; ti < timesize; ti++) {
+            //std::cout<<"ba : "<<ba<<" ti : "<<ti<<'\n';
+            //std::cout<<(*m_aLossFunction)[batchsize*ti + ba]<<'\n';
+            avg_loss += (*m_aLossFunction)[batchsize*ti + ba] / batchsize / timesize;
+        }
+    }
+
+    // if(avg_loss < 0){
+    //     std::cout<<"GetLoss함수에서 갖고오는 loss값 "<<'\n'<<m_aLossFunction->GetResult()<<'\n';
+    //     exit(0);
+    // }
+
+    return avg_loss;
+}
+
 
 /*
 //기존의 getloss임!!!

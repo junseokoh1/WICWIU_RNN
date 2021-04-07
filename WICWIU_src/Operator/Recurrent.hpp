@@ -71,6 +71,7 @@ public:
         //ApplyActivation  = new Relu<DTYPE>(AddBias, "rnn_tanh");
 
         //For AnalyzeGraph
+        pInput->GetOutputContainer()->Pop(m_aInput2Hidden);         //중요 !!!!
         rBias->GetOutputContainer()->Pop(AddBias);
         pWeightIH->GetOutputContainer()->Pop(m_aInput2Hidden);
         pWeightHH->GetOutputContainer()->Pop(m_aHidden2Hidden);
@@ -214,195 +215,201 @@ public:
         return TRUE;
     }
 
+    #if __CUDNN__
+        int ForwardPropagateOnGPU(int pTime = 0) {
 
-#if __CUDNN__
-    int ForwardPropagateOnGPU(int pTime = 0) {
-
-        cudnnTensorDescriptor_t desc = NULL;
-
-        #if __RNNDBUG__
-          std::cout<<"RNN의 입력값 확인"<<'\n';
-          std::cout<<this->GetInput()[0]->GetResult()<<'\n';
-        #endif
-
-        m_aInput2Hidden->ForwardPropagateOnGPU(pTime);
-
-        #if __RNNDBUG__
-          std::cout<<"m_aInput2Hidden forward 이후"<<'\n';
-          std::cout<<m_aInput2Hidden->GetResult()<<'\n';
-        #endif
-
-        if (pTime != 0) {
-            Tensor<DTYPE> *prevHidden = ApplyActivation->GetResult();
-            Tensor<DTYPE> *tempHidden = m_aTempHidden->GetResult();
-
-            DTYPE *pDevPrevHidden = prevHidden->GetGPUData(pTime - 1);
-            DTYPE *pDevTempHidden = tempHidden->GetGPUData(pTime);
-
-            //Tensor에 정의되어 있는 함수,
-            desc = prevHidden->GetDescriptor();
-
-            checkCUDNN(cudnnAddTensor(this->GetCudnnHandle(),
-                                      &m_alpha, desc, pDevPrevHidden,
-                                      &m_beta, desc, pDevTempHidden));
-
-            m_aHidden2Hidden->ForwardPropagateOnGPU(pTime);
-        }
-
-        //addall
-        m_aPrevActivate->ForwardPropagateOnGPU(pTime);
-
-        #if __RNNDBUG__
-          std::cout<<"m_aPrevActivate계산 후 값"<<'\n';
-          std::cout<<m_aPrevActivate->GetResult()<<'\n';
-        #endif
-
-        AddBias->ForwardPropagateOnGPU(pTime);
-
-        #if __RNNDBUG__
-          std::cout<<"AddBias계산 후 값"<<'\n';
-          std::cout<<AddBias->GetResult()<<'\n';
-        #endif
-
-        ApplyActivation->ForwardPropagateOnGPU(pTime);
-
-    //    std::cout<<"Tanh계산 후 값"<<'\n';
-    //    std::cout<<ApplyActivation->GetResult()<<'\n';
-
-        /*
-        //result부분에서도 GPU로 옮겨야 되는거 아닌가?....
-        Tensor<DTYPE> *_result = ApplyActivation->GetResult();
-        Tensor<DTYPE> *result  = this->GetResult();
-
-        int colSize        = result->GetColSize();
-        Shape *ResultShape = result->GetShape();
-
-
-        for (int i = 0; i < colSize; i++) {
-            (*result)[Index5D(ResultShape, pTime, 0, 0, 0, i)] = (*_result)[Index5D(ResultShape, pTime, 0, 0, 0, i)];
-        }
-        */
-
-        Tensor<DTYPE> *_result = ApplyActivation->GetResult();
-        Tensor<DTYPE> *result  = this->GetResult();
-
-        DTYPE *_pDevResult = _result->GetGPUData(pTime);
-        DTYPE *pDevresult = result->GetGPUData(pTime);
-
-        desc = result->GetDescriptor();
-
-        checkCUDNN(cudnnAddTensor(this->GetCudnnHandle(),
-                                  &m_alpha, desc, _pDevResult,
-                                  &m_beta, desc, pDevresult));
-
-        return TRUE;
-    }
-
-
-    int BackPropagateOnGPU(int pTime = 0) {
-
-        //std::cout<<"**************Time : "<<pTime<<'\n';
-
-        cudnnTensorDescriptor_t desc = NULL;
-
-        Tensor<DTYPE> *_grad = ApplyActivation->GetGradient();
-        Tensor<DTYPE> *grad  = this->GetGradient();
-
-        DTYPE *_pDevGrad = _grad->GetGPUData(pTime);
-        DTYPE *pDevGrad = grad->GetGPUData(pTime);
-
-        desc = grad->GetDescriptor();
-
-        checkCUDNN(cudnnAddTensor(this->GetCudnnHandle(),
-                                  &m_alpha, desc, pDevGrad,
-                                  &m_beta, desc, _pDevGrad));
-
-        int timeSize       = grad->GetTimeSize();
-        #if __RNNDBUG__
-          std::cout<<"Gradient를 맨 마지막 operator로 잘 복사했는가"<<'\n';
-          std::cout<<ApplyActivation->GetGradient()<<'\n';
-        #endif
-
-        /*
-        int colSize        = grad->GetColSize();
-        int timeSize       = grad->GetTimeSize();
-        Shape *ResultShape = grad->GetShape();
-
-        for (int i = 0; i < colSize; i++) {
-            (*_grad)[Index5D(ResultShape, pTime, 0, 0, 0, i)] = (*grad)[Index5D(ResultShape, pTime, 0, 0, 0, i)];
-        }
-        */
-
-        if (pTime != timeSize-1) {
-            m_aHidden2Hidden->BackPropagateOnGPU(pTime+1);
+            cudnnTensorDescriptor_t desc = NULL;
 
             #if __RNNDBUG__
-              std::cout<<"앞 time에서 넘겨주는 gradient"<<'\n';
-              std::cout<<m_aTempHidden->GetGradient()<<'\n';
+              std::cout<<"RNN의 입력값 확인"<<'\n';
+              std::cout<<this->GetInput()[0]->GetResult()<<'\n';
             #endif
 
-            Tensor<DTYPE> *tempHiddenGrad = m_aTempHidden->GetGradient();
-            Tensor<DTYPE> *prevHiddenGrad = ApplyActivation->GetGradient();
+            m_aInput2Hidden->ForwardPropagateOnGPU(pTime);
 
-            DTYPE *pDevTempHiddenGrad = tempHiddenGrad->GetGPUData(pTime + 1);
-            DTYPE *pDevPrevHiddenGrad = prevHiddenGrad->GetGPUData(pTime);
+            #if __RNNDBUG__
+              std::cout<<"m_aInput2Hidden forward 이후"<<'\n';
+              std::cout<<m_aInput2Hidden->GetResult()<<'\n';
+            #endif
 
-            desc = tempHiddenGrad->GetDescriptor();
+            if (pTime != 0) {
+                Tensor<DTYPE> *prevHidden = ApplyActivation->GetResult();
+                Tensor<DTYPE> *tempHidden = m_aTempHidden->GetResult();
+
+                DTYPE *pDevPrevHidden = prevHidden->GetGPUData(pTime - 1);
+                DTYPE *pDevTempHidden = tempHidden->GetGPUData(pTime);
+
+                //Tensor에 정의되어 있는 함수,
+                desc = prevHidden->GetDescriptor();
+
+                checkCUDNN(cudnnAddTensor(this->GetCudnnHandle(),
+                                          &m_alpha, desc, pDevPrevHidden,
+                                          &m_beta, desc, pDevTempHidden));
+
+                m_aHidden2Hidden->ForwardPropagateOnGPU(pTime);
+            }
+
+            //addall
+            m_aPrevActivate->ForwardPropagateOnGPU(pTime);
+
+            #if __RNNDBUG__
+              std::cout<<"m_aPrevActivate계산 후 값"<<'\n';
+              std::cout<<m_aPrevActivate->GetResult()<<'\n';
+            #endif
+
+            AddBias->ForwardPropagateOnGPU(pTime);
+
+            #if __RNNDBUG__
+              std::cout<<"AddBias계산 후 값"<<'\n';
+              std::cout<<AddBias->GetResult()<<'\n';
+            #endif
+
+            ApplyActivation->ForwardPropagateOnGPU(pTime);
+
+        //    std::cout<<"Tanh계산 후 값"<<'\n';
+        //    std::cout<<ApplyActivation->GetResult()<<'\n';
+
+            /*
+            //result부분에서도 GPU로 옮겨야 되는거 아닌가?....
+            Tensor<DTYPE> *_result = ApplyActivation->GetResult();
+            Tensor<DTYPE> *result  = this->GetResult();
+
+            int colSize        = result->GetColSize();
+            Shape *ResultShape = result->GetShape();
+
+
+            for (int i = 0; i < colSize; i++) {
+                (*result)[Index5D(ResultShape, pTime, 0, 0, 0, i)] = (*_result)[Index5D(ResultShape, pTime, 0, 0, 0, i)];
+            }
+            */
+
+            Tensor<DTYPE> *_result = ApplyActivation->GetResult();
+            Tensor<DTYPE> *result  = this->GetResult();
+
+            DTYPE *_pDevResult = _result->GetGPUData(pTime);
+            DTYPE *pDevresult = result->GetGPUData(pTime);
+
+            desc = result->GetDescriptor();
 
             checkCUDNN(cudnnAddTensor(this->GetCudnnHandle(),
-                                      &m_alpha, desc, pDevTempHiddenGrad,
-                                      &m_alpha, desc, pDevPrevHiddenGrad));
+                                      &m_alpha, desc, _pDevResult,
+                                      &m_beta, desc, pDevresult));
+
+            return TRUE;
         }
 
-        #if __RNNDBUG__
-          std::cout<<"Gradient 앞에 time과 본인의 gradient를 합한 값"<<'\n';
-          std::cout<<ApplyActivation->GetGradient()<<'\n';
-        #endif
 
-        ApplyActivation->BackPropagateOnGPU(pTime);
+        int BackPropagateOnGPU(int pTime = 0) {
 
-        #if __RNNDBUG__
-          std::cout<<"AddBias가 갖고있는 Gradient값 time: "<<pTime<<'\n';
-          std::cout<<AddBias->GetGradient()<<'\n';
-        #endif
+            //std::cout<<"**************Time : "<<pTime<<'\n';
 
-        AddBias->BackPropagateOnGPU(pTime);
+            cudnnTensorDescriptor_t desc = NULL;
 
-        m_aPrevActivate->BackPropagateOnGPU(pTime);
+            Tensor<DTYPE> *_grad = ApplyActivation->GetGradient();
+            Tensor<DTYPE> *grad  = this->GetGradient();
 
-        m_aInput2Hidden->BackPropagateOnGPU(pTime);
+            DTYPE *_pDevGrad = _grad->GetGPUData(pTime);
+            DTYPE *pDevGrad = grad->GetGPUData(pTime);
 
-        // delete, data loader, reset algo, 등 구하기
+            desc = grad->GetDescriptor();
 
-      //  std::cout<<"backward 끝"<<'\n';
+            checkCUDNN(cudnnAddTensor(this->GetCudnnHandle(),
+                                      &m_alpha, desc, pDevGrad,
+                                      &m_beta, desc, _pDevGrad));
 
-        return TRUE;
-    }
-#endif  // if __CUDNN__
+            int timeSize       = grad->GetTimeSize();
+            #if __RNNDBUG__
+              std::cout<<"Gradient를 맨 마지막 operator로 잘 복사했는가"<<'\n';
+              std::cout<<ApplyActivation->GetGradient()<<'\n';
+            #endif
+
+            /*
+            int colSize        = grad->GetColSize();
+            int timeSize       = grad->GetTimeSize();
+            Shape *ResultShape = grad->GetShape();
+
+            for (int i = 0; i < colSize; i++) {
+                (*_grad)[Index5D(ResultShape, pTime, 0, 0, 0, i)] = (*grad)[Index5D(ResultShape, pTime, 0, 0, 0, i)];
+            }
+            */
+
+            if (pTime != timeSize-1) {
+                m_aHidden2Hidden->BackPropagateOnGPU(pTime+1);
+
+                #if __RNNDBUG__
+                  std::cout<<"앞 time에서 넘겨주는 gradient"<<'\n';
+                  std::cout<<m_aTempHidden->GetGradient()<<'\n';
+                #endif
+
+                Tensor<DTYPE> *tempHiddenGrad = m_aTempHidden->GetGradient();
+                Tensor<DTYPE> *prevHiddenGrad = ApplyActivation->GetGradient();
+
+                DTYPE *pDevTempHiddenGrad = tempHiddenGrad->GetGPUData(pTime + 1);
+                DTYPE *pDevPrevHiddenGrad = prevHiddenGrad->GetGPUData(pTime);
+
+                desc = tempHiddenGrad->GetDescriptor();
+
+                checkCUDNN(cudnnAddTensor(this->GetCudnnHandle(),
+                                          &m_alpha, desc, pDevTempHiddenGrad,
+                                          &m_alpha, desc, pDevPrevHiddenGrad));
+            }
+
+            #if __RNNDBUG__
+              std::cout<<"Gradient 앞에 time과 본인의 gradient를 합한 값"<<'\n';
+              std::cout<<ApplyActivation->GetGradient()<<'\n';
+            #endif
+
+            ApplyActivation->BackPropagateOnGPU(pTime);
+
+            #if __RNNDBUG__
+              std::cout<<"AddBias가 갖고있는 Gradient값 time: "<<pTime<<'\n';
+              std::cout<<AddBias->GetGradient()<<'\n';
+            #endif
+
+            AddBias->BackPropagateOnGPU(pTime);
+
+            m_aPrevActivate->BackPropagateOnGPU(pTime);
+
+            m_aInput2Hidden->BackPropagateOnGPU(pTime);
+
+            // delete, data loader, reset algo, 등 구하기
+
+          //  std::cout<<"backward 끝"<<'\n';
+
+            return TRUE;
+        }
+    #endif  // if __CUDNN__
 
 
 
-    // GPU에 대한 Reset 처리는 operator.hpp에 되어있음
-    int ResetResult() {
-        m_aInput2Hidden->ResetResult();
-        m_aHidden2Hidden->ResetResult();
-        m_aTempHidden->ResetResult();
-        m_aPrevActivate->ResetResult();
-        ApplyActivation->ResetResult();
-        AddBias->ResetResult();
-    }
+        // GPU에 대한 Reset 처리는 operator.hpp에 되어있음
+        int ResetResult() {
+            m_aInput2Hidden->ResetResult();
+            m_aHidden2Hidden->ResetResult();
+            m_aTempHidden->ResetResult();
+            m_aPrevActivate->ResetResult();
+            ApplyActivation->ResetResult();
+            AddBias->ResetResult();
 
-    int ResetGradient() {
-        m_aInput2Hidden->ResetGradient();
-        m_aHidden2Hidden->ResetGradient();
-        m_aTempHidden->ResetGradient();
-        m_aPrevActivate->ResetGradient();
-        ApplyActivation->ResetGradient();
-        AddBias->ResetGradient();
-    }
+            Tensor<DTYPE> *result = this->GetResult();
+            result->Reset();
+
+        }
+
+        int ResetGradient() {
+            m_aInput2Hidden->ResetGradient();
+            m_aHidden2Hidden->ResetGradient();
+            m_aTempHidden->ResetGradient();
+            m_aPrevActivate->ResetGradient();
+            ApplyActivation->ResetGradient();
+            AddBias->ResetGradient();
+
+            Tensor<DTYPE> *grad = this->GetGradient();
+            grad->Reset();
+        }
 
 
-};
+    };
 
 
-#endif  // RECURRENT_H_
+    #endif  // SEQRECURRENT_H_

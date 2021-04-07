@@ -2,7 +2,7 @@
 
 
 int main(int argc, char const *argv[]) {
-    Tensorholder<float> *pWeight = new Tensorholder<float>(Tensor<float>::Random_normal(1, 1, 1, 2, 3, 0.0, 0.1), "x");
+    Tensorholder<float> *pWeight = new Tensorholder<float>(Tensor<float>::Random_normal(1, 1, 1, 1, 3, 0.0, 0.1), "x");
     Tensorholder<float> *input0 = new Tensorholder<float>(Tensor<float>::Random_normal(1, 1, 1, 1, 3, 0.0, 0.1), "label");
 
 
@@ -11,12 +11,12 @@ int main(int argc, char const *argv[]) {
     (*(input0->GetResult()))[2] = 0.3;
     //(*(input0->GetResult()))[3] = 0.4;
 
-    (*(pWeight->GetResult()))[0] = -1.0;
-    (*(pWeight->GetResult()))[1] = 0.4;
-    (*(pWeight->GetResult()))[2] = 0.5;
-    (*(pWeight->GetResult()))[3] = 0.2;
-    (*(pWeight->GetResult()))[4] = 0.3;
-    (*(pWeight->GetResult()))[5] = 0.3;
+    (*(pWeight->GetResult()))[0] = 1;
+    (*(pWeight->GetResult()))[1] = 2;
+    (*(pWeight->GetResult()))[2] = 2;
+    // (*(pWeight->GetResult()))[3] = 4;
+    // (*(pWeight->GetResult()))[4] = 5;
+    // (*(pWeight->GetResult()))[5] = 6;
 
     std::cout<<"weight"<<'\n';
     std::cout << pWeight->GetResult()->GetShape() << '\n';

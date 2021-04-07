@@ -176,7 +176,7 @@ public:
 
         #if __LOSS__
         std::cout<<"softmaxcrossentropy 의 입력값 : "<<'\n'<<input<<'\n';
-        //std::cout<<"softmaxcrossentropy 의 label 값 : "<<label<<'\n';
+        std::cout<<"softmaxcrossentropy 의 label 값 : "<<label<<'\n';
         #endif
 
         for (int ba = 0; ba < batchsize; ba++) {  // thread
@@ -185,7 +185,7 @@ public:
         }
 
 
-        int capacity = colsize;
+        int capacity = colsize;         //여기가.... padding을 추가하면 핵심!....
 
         int start = 0;
         int end   = 0;
@@ -227,7 +227,8 @@ public:
         std::cout<<"SoftmaxCrossEntropy forward 결과값(loss값) time : "<<pTime<<'\n'<<result<<'\n';
         #endif
 
-
+        //std::cout<<result->GetShape()<<'\n';
+        //std::cout<<result<<'\n';
 
         return result;
     }

@@ -82,6 +82,9 @@ public:
             }
         }
 
+        #ifdef __SKIPGRAM__
+        std::cout<<"sigmoid forward 결과값"<<'\n'<<result<<'\n';
+        #endif
 
         return TRUE;
     }
@@ -97,6 +100,12 @@ public:
         Tensor<DTYPE> *this_delta  = this->GetDelta();
         Tensor<DTYPE> *input_delta = this->GetInput()[0]->GetDelta();
 
+        #ifdef __SKIPGRAM__
+        std::cout<<"---------------------------sigmoid backpropagate-------------------------"<<'\n';
+        std::cout<<"위에서 넘겨준 delta값"<<'\n';
+        std::cout<<this_delta<<'\n';
+        #endif
+
         int timesize    = result->GetTimeSize();
         int batchsize   = result->GetBatchSize();
         int channelsize = result->GetChannelSize();
@@ -107,6 +116,11 @@ public:
 
         int ti = pTime;
 
+        #ifdef __SKIPGRAM__
+        std::cout<<"계산전 delta 값"<<'\n';
+        std::cout<<input_delta<<'\n';
+        #endif
+
         for (int ba = 0; ba < batchsize; ba++) {
             for (int ch = 0; ch < channelsize; ch++) {
                 for (int ro = 0; ro < rowsize; ro++) {
@@ -115,10 +129,16 @@ public:
                             += (*result)[Index5D(resultTenShape, ti, ba, ch, ro, co)]
                                * (1 - (*result)[Index5D(resultTenShape, ti, ba, ch, ro, co)])
                                * (*this_delta)[Index5D(resultTenShape, ti, ba, ch, ro, co)];
+
+                      //  std::cout<<(*result)[Index5D(resultTenShape, ti, ba, ch, ro, co)]<<" * "<<(1 - (*result)[Index5D(resultTenShape, ti, ba, ch, ro, co)])<<" * "<<(*this_delta)[Index5D(resultTenShape, ti, ba, ch, ro, co)]<<'\n';
                     }
                 }
             }
         }
+
+        #ifdef __SKIPGRAM__
+        std::cout<<'\n'<<"sigmoid에서 input으로 주는 gradient"<<'\n'<<input_delta<<'\n';
+        #endif
 
         return TRUE;
     }

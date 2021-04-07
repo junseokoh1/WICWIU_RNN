@@ -33,40 +33,40 @@ int ReverseInt(int i) {
 }
 
 template<typename DTYPE> void IMAGE_Reader(string pImagePath, DTYPE **pImage) {
-    ifstream fin;
-    fin.open(pImagePath, ios_base::binary);
+      ifstream fin;
+      fin.open(pImagePath, ios_base::binary);
 
-    if (fin.is_open()) {
-        int magicNumber = 0;
-        int numOfImage  = 0;
-        int n_rows      = 0;
-        int n_cols      = 0;
+      if (fin.is_open()) {
+          int magicNumber = 0;
+          int numOfImage  = 0;
+          int n_rows      = 0;
+          int n_cols      = 0;
 
-        fin.read((char *)&magicNumber, sizeof(magicNumber));
-        magicNumber = ReverseInt(magicNumber);
+          fin.read((char *)&magicNumber, sizeof(magicNumber));
+          magicNumber = ReverseInt(magicNumber);
 
-        fin.read((char *)&numOfImage,  sizeof(numOfImage));
-        numOfImage = ReverseInt(numOfImage);
+          fin.read((char *)&numOfImage,  sizeof(numOfImage));
+          numOfImage = ReverseInt(numOfImage);
 
-        fin.read((char *)&n_rows,      sizeof(n_rows));
-        n_rows = ReverseInt(n_rows);
+          fin.read((char *)&n_rows,      sizeof(n_rows));
+          n_rows = ReverseInt(n_rows);
 
-        fin.read((char *)&n_cols,      sizeof(n_cols));
-        n_cols = ReverseInt(n_cols);
+          fin.read((char *)&n_cols,      sizeof(n_cols));
+          n_cols = ReverseInt(n_cols);
 
-        int dimOfImage = n_rows * n_cols;
+          int dimOfImage = n_rows * n_cols;
 
-        for (int i = 0; i < numOfImage; ++i) {
-            pImage[i] = new DTYPE[dimOfImage];
+          for (int i = 0; i < numOfImage; ++i) {
+              pImage[i] = new DTYPE[dimOfImage];
 
-            for (int d = 0; d < dimOfImage; ++d) {
-                unsigned char data = 0;
-                fin.read((char *)&data, sizeof(data));
-                pImage[i][d] = (DTYPE)data / 255.0;
-            }
-        }
-    }
-    fin.close();
+              for (int d = 0; d < dimOfImage; ++d) {
+                  unsigned char data = 0;
+                  fin.read((char *)&data, sizeof(data));
+                  pImage[i][d] = (DTYPE)data / 255.0;
+              }
+          }
+      }
+      fin.close();
 }
 
 template<typename DTYPE>

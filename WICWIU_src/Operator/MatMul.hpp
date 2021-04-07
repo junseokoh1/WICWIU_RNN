@@ -275,9 +275,19 @@ public:
     @return 성공 시 TRUE.
     */
     int ForwardPropagate(int pTime = 0) {
+
+        //std::cout<<"MatMul Forward "<<this->GetName()<<'\n';
+        //std::cout<<"MatMul forward 시작"<<pTime<<'\n';
+
         Tensor<DTYPE> *weight = this->GetInput()[0]->GetResult();
         Tensor<DTYPE> *input  = this->GetInput()[1]->GetResult();
         Tensor<DTYPE> *result = this->GetResult();
+
+        // std::cout<<"weight"<<'\n';
+        // std::cout<<weight;
+        //
+        // std::cout<<"input"<<'\n';
+        // std::cout<<input;
 
         int timesize    = result->GetTimeSize();
         int batchsize   = result->GetBatchSize();
@@ -296,6 +306,7 @@ public:
         Shape *resultTenShape = result->GetShape();
 
         int ti = pTime;
+
 /*
         std::cout<<"matmul의 입력값"<<'\n';
         std::cout<<this->GetInput()[1]->GetResult()<<'\n';
@@ -306,20 +317,23 @@ public:
         std::cout<<"<MatMul forward 계산>"<<'\n';
 */
         for (int ba = 0; ba < batchsize; ba++) {
+            //std::cout<<'\n'<<'\n';
             for (int ch = 0; ch < channelsize; ch++) {
                 for (int ro = 0; ro < rowsize; ro++) {
                     for (int co = 0; co < colsize; co++) {
+                        //std::cout<<'\n';
                         for (int hid = 0; hid < hiddensize; hid++) {
                             (*result)[Index5D(resultTenShape, ti, ba, ch, ro, co)]
                                 += (*weight)[Index5D(weightTenShape, 0, 0, 0, co, hid)]
                                    * (*input)[Index5D(inputTenShape, ti, ba, ch, ro, hid)];
-                            //std::cout<<(*result)[Index5D(resultTenShape, ti, ba, ch, ro, co)]<<" = "<<(*weight)[Index5D(weightTenShape, 0, 0, 0, co, hid)]<<" * "<<(*input)[Index5D(inputTenShape, ti, ba, ch, ro, hid)]<<'\n';
+                            //std::cout<<(*result)[Index5D(resultTenShape, ti, ba, ch, ro, co)]<<" = "<<(*weight)[Index5D(weightTenShape, 0, 0, 0, co, hid)]<<" * "<<(*input)[Index5D(inputTenShape, ti, ba, ch, ro, hid)]<<"     ";
                         }
                     }
                 }
             }
         }
 
+        //std::cout<<pTime<<"matmul forward 완료"<<'\n';
 
         return TRUE;
     }
@@ -396,6 +410,9 @@ public:
     @return 성공 시 TRUE.
     */
     int ForwardPropagateOnGPU(int pTime = 0) {
+
+        // std::cout<<"MatMul Forward GPU"<<pTime<<'\n';
+
         Tensor<DTYPE> *weight = this->GetInput()[0]->GetResult();
         Tensor<DTYPE> *input  = this->GetInput()[1]->GetResult();
         Tensor<DTYPE> *result = this->GetResult();

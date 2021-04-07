@@ -9,7 +9,8 @@ ENABLE_CUDNN = -D__CUDNN__
 #DFLAGS = -D__RNNDEBUG__
 #DFLAGS = -D__LOSS__
 #DFLAGS = -D__UPDATEPAR__
-#DFLAGS = -D__RNNDEBUG__    # 이런식으로 하면 둘다 가능함
+#DFLAGS = -D__RNNDEBUG__
+# 이런식으로 하면 둘다 가능함
 #DFLAGS = -D__LOSS__ -D__RNNDEBUG__
 #DFLAGS = -D__RESET__ -D__LOSS__
 #DFLAGS = -D__RESET__ -D__UPDATEPAR__
@@ -49,7 +50,8 @@ ifdef	ENABLE_CUDNN
 		../../WICWIU_src/Optimizer/NagOptimizer_CUDA.cu \
 		../../WICWIU_src/Optimizer/AdagradOptimizer_CUDA.cu \
 		../../WICWIU_src/Optimizer/RMSPropOptimizer_CUDA.cu \
-		../../WICWIU_src/LossFunction/SoftmaxCrossEntropy_CUDA.cu
+		../../WICWIU_src/LossFunction/SoftmaxCrossEntropy_CUDA.cu \
+		../../WICWIU_src/Operator/Embedding_CUDA.cu
 
 	WICWIU_CUDA_OBJS = ${WICWIU_CUDA_SRCS:.cu=.o}
 endif
@@ -79,6 +81,9 @@ WICWIU_src/Operator/Concatenate_CUDA.o: WICWIU_src/Operator/Concatenate_CUDA.cu
 	$(NVCC) $(CFLAGS) $(DFLAGS) $(ENABLE_CUDNN) $(INCLUDE_PATH) -c $< -o $@
 
 WICWIU_src/LossFunction/SoftmaxCrossEntropy_CUDA.o: WICWIU_src/LossFunction/SoftmaxCrossEntropy_CUDA.cu
+	$(NVCC) $(CFLAGS) $(DFLAGS) $(ENABLE_CUDNN) $(INCLUDE_PATH) -c $< -o $@
+
+WICWIU_src/Operator/Embedding_CUDA.o: WICWIU_src/Operator/Embedding_CUDA.cu
 	$(NVCC) $(CFLAGS) $(DFLAGS) $(ENABLE_CUDNN) $(INCLUDE_PATH) -c $< -o $@
 
 ifdef	ENABLE_CUDNN

@@ -230,6 +230,28 @@ public:
     @param pMeanSquared 업데이트 할 pMeanSquared
     @return 성공 시 TURE
     */
+
+    //기존 방법 wicwiu 공식 사이트에서 가져온거!!!
+    int UpdateParameter(Operator<DTYPE> *pParameter, Tensor<DTYPE> *m_pMeanSquared) {
+    Tensor<DTYPE> *trainable_data = pParameter->GetResult();
+    Tensor<DTYPE> *gradient       = pParameter->GetGradient();
+
+
+    // std::cout<<"RMSProp updataParameter  "<<pParameter->GetName()<<'\n';
+    // std::cout<<gradient<<'\n';
+
+    float signed_learning_rate = this->GetOptimizeDirection() * this->GetLearningRate();//minimizer = -1
+    int capacity = trainable_data->GetCapacity();
+
+
+    for (int i = 0; i < capacity; i++) {
+        (*m_pMeanSquared)[i]       = (m_decay * (*m_pMeanSquared)[i]) + (( 1.f - m_decay) * ((*gradient)[i] * (*gradient)[i]));
+        (*trainable_data)[i]    += ((signed_learning_rate * (*gradient)[i]) / std::sqrt((*m_pMeanSquared)[i] + m_epsilon));
+    }
+
+    return TRUE;
+    }
+
 /*
     //방법2
     int UpdateParameter(Operator<DTYPE> *pParameter, Tensor<DTYPE> *m_pMeanSquared) {
@@ -260,37 +282,44 @@ public:
     }
 */
 
-    //방법3에 learning rate을 미 포함하는 버전
-    int UpdateParameter(Operator<DTYPE> *pParameter, Tensor<DTYPE> *m_pMeanSquared) {
-        float m_clipValue = 0.5;
 
-        Tensor<DTYPE> *trainable_data = pParameter->GetResult();
-        Tensor<DTYPE> *gradient       = pParameter->GetGradient();
 
-        float signed_learning_rate = this->GetOptimizeDirection() * this->GetLearningRate();//minimizer = -1
-        int capacity = trainable_data->GetCapacity();
+    // 2021년 3월 17일까지 이 방법을 사용하고 있었음!!!!!!!!!!!!!!! 중요!!! 이거임!!!!!
+    // 방법3에 learning rate을 미 포함하는 버전
+    // int UpdateParameter(Operator<DTYPE> *pParameter, Tensor<DTYPE> *m_pMeanSquared) {
+    //     float m_clipValue = 0.05;
+    //
+    //     //std::cout<<"RMS clipping"<<'\n';
+    //
+    //     Tensor<DTYPE> *trainable_data = pParameter->GetResult();
+    //     Tensor<DTYPE> *gradient       = pParameter->GetGradient();
+    //
+    //     float signed_learning_rate = this->GetOptimizeDirection() * this->GetLearningRate();//minimizer = -1
+    //     int capacity = trainable_data->GetCapacity();
+    //
+    //     float temp[capacity];
+    //
+    //     for (int i = 0; i < capacity; i++) {
+    //         (*m_pMeanSquared)[i]       = (m_decay * (*m_pMeanSquared)[i]) + (( 1.f - m_decay) * ((*gradient)[i] * (*gradient)[i]));
+    //
+    //         if(abs((*gradient)[i]) > m_clipValue){
+    //             (*gradient)[i] = (m_clipValue/abs((*gradient)[i])) * (*gradient)[i];
+    //         }
+    //
+    //         temp[i] = ((*gradient)[i] / std::sqrt((*m_pMeanSquared)[i] + m_epsilon));
+    //
+    //         if(abs(temp[i]) > m_clipValue){
+    //               temp[i] = (m_clipValue/abs(temp[i])) * temp[i];
+    //         }
+    //
+    //         (*trainable_data)[i]  += (signed_learning_rate * temp[i]);
+    //
+    //     }
+    //
+    //     return TRUE;
+    // }
 
-        float temp[capacity];
 
-        for (int i = 0; i < capacity; i++) {
-            (*m_pMeanSquared)[i]       = (m_decay * (*m_pMeanSquared)[i]) + (( 1.f - m_decay) * ((*gradient)[i] * (*gradient)[i]));
-
-            if(abs((*gradient)[i]) > m_clipValue){
-                (*gradient)[i] = (m_clipValue/abs((*gradient)[i])) * (*gradient)[i];
-            }
-
-            temp[i] = ((*gradient)[i] / std::sqrt((*m_pMeanSquared)[i] + m_epsilon));
-
-            if(abs(temp[i]) > m_clipValue){
-                  temp[i] = (m_clipValue/abs(temp[i])) * temp[i];
-            }
-
-            (*trainable_data)[i]  += (signed_learning_rate * temp[i]);
-
-        }
-
-        return TRUE;
-    }
 
 /*
     //방법 3에 learning rate을 포함하는 버전

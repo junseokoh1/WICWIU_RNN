@@ -17,7 +17,6 @@ int main(int argc, char const *argv[]) {
     char filename[]      = "GAN_params";
     string path = "../../../../../64_celebA";
 
-
     // create input, label data placeholder -> Tensorholder
     Tensorholder<float> *z     = new Tensorholder<float>(1, BATCH, 1, 1, 100, "z");
     Tensorholder<float> *x     = new Tensorholder<float>(1, BATCH, 1, 1, 12288, "x");

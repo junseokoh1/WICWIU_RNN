@@ -104,6 +104,8 @@ int main(int argc, char const *argv[]) {
     std::cout << pWeight_h2h->GetResult()->GetShape() << '\n';
     std::cout << pWeight_h2h->GetResult() << '\n';
 
+
+    // RNN network 생성
     //Operator<float> *rnn = new Recurrent<float>(input0, pWeight_x2h, pWeight_h2h, rBias, "RNN");
     Operator<float> *rnn = new RecurrentCUDNN<float>(input0, pWeight_x2h, pWeight_h2h, rBias, "RNN");
 

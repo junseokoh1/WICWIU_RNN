@@ -66,6 +66,9 @@ public:
     Container<Operator<DTYPE> *>      * GetParameterContainer();
     Container<Operator<DTYPE> *>      * GetParameter();
 
+    //gethidden을 위해 추가    2021/04/06
+    Tensor<DTYPE>                     * GetHidden(Operator<DTYPE>* padding = NULL);
+
     virtual int                         SetIsTensorholder(int pIsParameter);
     virtual int                         SetIsTrainable(int pIsTrainable);
 
@@ -75,6 +78,10 @@ public:
 
     int                                 ForwardPropagate(int pTime = 0);
     int                                 BackPropagate(int pTime = 0);
+
+    //BPTT를 위해 추가!!! layer마다 다 돌아가도록 처리!        2021년 3월 27일!       CPU는 안 만들고 일단 GPU에서만 test!
+    // int                                 BPTTForwardPropagate(int pTime = 0);
+    // int                                 BPTTBackPropagate(int pTime = 0);
 
     int                                 ResetResult();
     int                                 ResetGradient();
@@ -100,6 +107,10 @@ public:
 
     int          ForwardPropagateOnGPU(int pTime = 0);
     int          BackPropagateOnGPU(int pTime = 0);
+
+    //2021년 3월 추가
+    int          BPTTForwardPropagateOnGPU(int pTime = 0);        //사용X
+    int          BPTTBackPropagateOnGPU(int pTime = 0);
 #endif  // if __CUDNN__
 };
 
@@ -161,9 +172,9 @@ template<typename DTYPE> void Module<DTYPE>::Delete() {
  * @return 없음
  */
 template<typename DTYPE> Module<DTYPE>::Module(std::string pName) : Operator<DTYPE>(pName) {
-    #ifdef __DEBUG__
+//    #ifdef __DEBUG__
     std::cout << "Module<DTYPE>::Module()" << '\n';
-    #endif  // __DEBUG__
+//    #endif  // __DEBUG__
     m_aaExcutableOperator    = NULL;
     m_numOfExcutableOperator = 0;
     m_pLastOperator          = NULL;
@@ -313,6 +324,8 @@ template<typename DTYPE> Operator<DTYPE> *Module<DTYPE>::AnalyzeGraph(Operator<D
 
     int test=0;     //내가 찍어볼려고 만든거
 
+    //std::cout<<"현재 analyzeGraph 호출 주인 : "<<this<<'\n';
+
     while (queue.GetSize() > 0) {
         out = queue.Pop();
         #if __RNNDEBUG__
@@ -416,6 +429,11 @@ template<typename DTYPE> Container<Operator<DTYPE> *> *Module<DTYPE>::GetParamet
     // return this->GetInputContainer();
 }
 
+template<typename DTYPE> Tensor<DTYPE> *Module<DTYPE>::GetHidden(Operator<DTYPE>* padding) {
+    return m_pLastOperator->GetHidden(padding);
+    // return this->GetInputContainer();
+}
+
 template<typename DTYPE> int Module<DTYPE>::SetIsTensorholder(int pIsParameter) {
     for (int i = 0; i < m_ParameterDegree; i++) {
         (*m_apParameter)[i]->SetIsTensorholder(pIsParameter);
@@ -458,6 +476,9 @@ template<typename DTYPE> int Module<DTYPE>::SetModeInference() {
  * @return TRUE
  */
 template<typename DTYPE> int Module<DTYPE>::ForwardPropagate(int pTime) {
+    //std::cout<<'\n'<<"Module::ForwardPropagate함수 호출 ???"<<'\n';
+    //std::cout<<this<<'\n';
+    //std::cout<<this->GetName()<<'\n';
     for (int i = 0; i < m_numOfExcutableOperator; i++) {
         (*m_aaExcutableOperator)[i]->ForwardPropagate(pTime);
     }
@@ -471,6 +492,7 @@ template<typename DTYPE> int Module<DTYPE>::ForwardPropagate(int pTime) {
  * @return TRUE
  */
 template<typename DTYPE> int Module<DTYPE>::BackPropagate(int pTime) {
+    //std::cout<<'\n'<<"Module::BackwardPropagate함수 호출"<<'\n';
     for (int i = m_numOfExcutableOperator - 1; i >= 0; i--) {
         //std::cout<<"Module<DTYPE>::BackPropagate 주소값 : "<<(*m_aaExcutableOperator)[i]<<'\n';
         (*m_aaExcutableOperator)[i]->BackPropagate(pTime);
@@ -679,6 +701,26 @@ template<typename DTYPE> int Module<DTYPE>::ForwardPropagateOnGPU(int pTime) {
 template<typename DTYPE> int Module<DTYPE>::BackPropagateOnGPU(int pTime) {
     for (int i = m_numOfExcutableOperator - 1; i >= 0; i--) {
         (*m_aaExcutableOperator)[i]->BackPropagateOnGPU(pTime);
+    }
+    return TRUE;
+}
+
+//2021년 3월 추가
+template<typename DTYPE> int Module<DTYPE>::BPTTForwardPropagateOnGPU(int timesize) {
+    for (int i = 0; i < m_numOfExcutableOperator; i++) {
+        for(int ti = 0; ti < timesize; ti++){
+          (*m_aaExcutableOperator)[i]->ForwardPropagateOnGPU(ti);
+        }
+    }
+    return TRUE;
+}
+
+
+template<typename DTYPE> int Module<DTYPE>::BPTTBackPropagateOnGPU(int timesize) {
+    for (int i = m_numOfExcutableOperator - 1; i >= 0; i--) {
+        for(int ti = 0; ti < timesize; ti++){
+        (*m_aaExcutableOperator)[i]->BackPropagateOnGPU(ti);
+        }
     }
     return TRUE;
 }

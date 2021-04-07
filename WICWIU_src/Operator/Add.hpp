@@ -492,7 +492,6 @@ public:
             }
         }
 
-
         return TRUE;
     }
 
@@ -548,7 +547,8 @@ public:
         m_pDevOutput = result->GetGPUData(pTime);
 
         #if __RNNDBUG__
-          std::cout<<"AddColwise의 입력 값"<<'\n';
+          std::cout<<"AddColwise의 입력 값 : "<<pTime<<'\n';
+          std::cout<<input->GetShape()<<'\n';
           std::cout<<input<<'\n';
           std::cout<<bias<<'\n';
         #endif
@@ -559,6 +559,8 @@ public:
         checkCUDNN(cudnnAddTensor(this->GetCudnnHandle(),
                                   &m_alpha, biasTensorDesc, m_pDevBias,
                                   &m_alpha, outputTensorDesc, m_pDevOutput));
+
+        //std::cout<<pTime<<'\n'<<result<<'\n';
 
         return TRUE;
     }

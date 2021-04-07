@@ -158,6 +158,8 @@ public:
         Tensor<DTYPE> *trainable_data = pParameter->GetResult();
         Tensor<DTYPE> *gradient       = pParameter->GetGradient();
 
+        //std::cout<<"AdagradOptimizer에서 출력"<<'\n'<<gradient<<'\n';
+
         float learning_rate = this->GetOptimizeDirection() * this->GetLearningRate();
 
         int capacity = trainable_data->GetCapacity();

@@ -9,3 +9,7 @@
 #include "LossFunction/WGANDiscriminatorLoss.hpp"
 #include "LossFunction/BEGANGeneratorLoss.hpp"
 #include "LossFunction/BEGANDiscriminatorLoss.hpp"
+
+#include "LossFunction/CrossEntropy2.hpp"
+#include "LossFunction/NEG.hpp"
+#include "LossFunction/SoftmaxCrossEntropy_padding.hpp"

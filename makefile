@@ -7,13 +7,15 @@ WICWIU_LIB = lib/libwicwiu.a
 
 
 #	if CUDA device, cuda or cuDNN is not installed, disable the following line
-ENABLE_CUDNN = -D__CUDNN__
+#ENABLE_CUDNN = -D__CUDNN__
 
 #	uncomment the following to debug
 #DFLAGS = -D__DEBUG__
 #DFLAGS = -D__RNNDEBUG__
 #DFLAGS = -D__NAN__ -D__RNNDEBUG__
 #DFLAGS = -D__LOSS__
+#seq2seq에서 reset하는 부분 때문에 추가
+#DFLAGS = -D__RESET__
 
 INCLUDE_PATH = -I/usr/local/cuda-10.2/include
 LIB_PATH = -L. -L/usr/local/cuda-10.2/lib64
@@ -50,7 +52,8 @@ ifdef	ENABLE_CUDNN
 		WICWIU_src/Optimizer/NagOptimizer_CUDA.cu \
 		WICWIU_src/Optimizer/AdagradOptimizer_CUDA.cu \
 		WICWIU_src/Optimizer/RMSPropOptimizer_CUDA.cu \
-		WICWIU_src/LossFunction/SoftmaxCrossEntropy_CUDA.cu
+		WICWIU_src/LossFunction/SoftmaxCrossEntropy_CUDA.cu \
+		WICWIU_src/Operator/Embedding_CUDA.cu
 
 	WICWIU_CUDA_OBJS = ${WICWIU_CUDA_SRCS:.cu=.o}
 endif
@@ -87,6 +90,9 @@ WICWIU_src/Operator/PRelu_CUDA.o: WICWIU_src/Operator/PRelu_CUDA.cu
 	$(NVCC) $(CFLAGS) $(DFLAGS) $(ENABLE_CUDNN) $(INCLUDE_PATH) -c $< -o $@
 
 WICWIU_src/LossFunction/SoftmaxCrossEntropy_CUDA.o: WICWIU_src/LossFunction/SoftmaxCrossEntropy_CUDA.cu
+	$(NVCC) $(CFLAGS) $(DFLAGS) $(ENABLE_CUDNN) $(INCLUDE_PATH) -c $< -o $@
+
+WICWIU_src/Operator/Embedding_CUDA.o: WICWIU_src/Operator/Embedding_CUDA.cu
 	$(NVCC) $(CFLAGS) $(DFLAGS) $(ENABLE_CUDNN) $(INCLUDE_PATH) -c $< -o $@
 
 $(WICWIU_LIB): $(WICWIU_OBJS) $(WICWIU_CUDA_OBJS)

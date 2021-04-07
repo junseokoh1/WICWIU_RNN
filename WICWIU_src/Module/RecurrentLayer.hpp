@@ -10,8 +10,8 @@ public:
     /*!
     @brief RecurrentLayer 클래스 생성자
     @details RecurrentLayer 클래스의 Alloc 함수를 호출한다.*/
-    RecurrentLayer(Operator<DTYPE> *pInput, int inputsize, int hiddensize, int outputsize, int use_bias = TRUE, std::string pName = "No Name") : Module<DTYPE>(pName) {
-        Alloc(pInput, inputsize, hiddensize, outputsize, use_bias, pName);
+    RecurrentLayer(Operator<DTYPE> *pInput, int inputsize, int hiddensize, int outputsize, Operator<DTYPE> *initHidden, int use_bias = TRUE, std::string pName = "No Name") : Module<DTYPE>(pName) {
+        Alloc(pInput, inputsize, hiddensize, outputsize, initHidden, use_bias, pName);
     }
 
     /*!
@@ -28,7 +28,7 @@ public:
     @return TRUE
     @see
     */
-    int Alloc(Operator<DTYPE> *pInput, int inputsize, int hiddensize, int outputsize, int use_bias, std::string pName) {
+    int Alloc(Operator<DTYPE> *pInput, int inputsize, int hiddensize, int outputsize, Operator<DTYPE>* initHidden, int use_bias, std::string pName) {
         this->SetInput(pInput);
 
         Operator<DTYPE> *out = pInput;
@@ -38,39 +38,81 @@ public:
         float xavier_h = sqrt(2/(hiddensize+hiddensize));
         float xavier_o = sqrt(2/(inputsize+outputsize));
 
-
         //원래는 0.01로 해둠
         Tensorholder<DTYPE> *pWeight_x2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddensize, inputsize, 0.0, 0.01), "RecurrentLayer_pWeight_x2h_" + pName);
-        //Tensorholder<DTYPE> *pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddensize, hiddensize, 0.0, 0.01), "RecurrentLayer_pWeight_h2h_" + pName);
+        Tensorholder<DTYPE> *pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddensize, hiddensize, 0.0, 0.01), "RecurrentLayer_pWeight_h2h_" + pName);
         //Tensorholder<DTYPE> *pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::IdentityMatrix(1, 1, 1, hiddensize, hiddensize), "RecurrentLayer_pWeight_h2h_" + pName);
 
         //cudnn때문에 추가
-        Tensorholder<DTYPE> *pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddensize, hiddensize+inputsize, 0.0, 0.01), "RecurrentLayer_pWeight_h2h_" + pName);
+#ifdef __CUDNN__
+        //Tensorholder<DTYPE> *pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddensize, hiddensize+inputsize, 0.0, 0.01), "RecurrentLayer_pWeight_h2h_" + pName);
         //Tensorholder<DTYPE> *pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddensize+inputsize, hiddensize, 0.0, 0.01), "RecurrentLayer_pWeight_h2h_" + pName);
+        pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddensize, hiddensize+inputsize+1, 0.0, 0.01), "RecurrentLayer_pWeight_h2h_" + pName);    //bias 1개 일때!!!        //이거 output으로 바꿔서 해보기!!!
+#endif  // __CUDNN__
+
 
         Tensorholder<DTYPE> *pWeight_h2o = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, outputsize, hiddensize, 0.0, 0.01), "RecurrentLayer_pWeight_h2o_" + pName);
 
         //recurrent 내에 bias 추가 하는 거!
         Tensorholder<DTYPE> *rBias = new Tensorholder<DTYPE>(Tensor<DTYPE>::Constants(1, 1, 1, 1, hiddensize, 0.f), "RNN_Bias_" + pName);
 
-        //out = new Recurrent<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias);
-        //out = new RecurrentCUDNN<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias);
-        out = new RecurrentCUDNN2<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias);
+        out = new SeqRecurrent<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias);
+        //out = new RecurrentCUDNN2<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias);                   //gpu 사용할때는 이걸!!!
+
+        //initHidden값이 NULL이면 내부에서 알아서 처리해주지!!!
+        //out = new SeqRecurrent<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias, initHidden);
 
 
-        //out = new MatMul<DTYPE>(pWeight_h2o, out, "rnn_matmul_ho");
+        //매우매우 중요!!!!! cudnn 때문에 hidden2out, bias 부분 없애줌 -> BPTT에서 호출을 딱 한번만 해서!!!    cudnn에서 처리해주는건 아닌데... 일단은 결과 보려고 하는거!...
 
-
-
-        if (use_bias) {
-            Tensorholder<DTYPE> *pBias = new Tensorholder<DTYPE>(Tensor<DTYPE>::Constants(1, 1, 1, 1, outputsize, 0.f), "Add_Bias_" + pName);
-            out = new AddColWise<DTYPE>(out, pBias, "Layer_Add_" + pName);
-        }
+        // out = new MatMul<DTYPE>(pWeight_h2o, out, "rnn_matmul_ho");
+        //
+        // if (use_bias) {
+        //     Tensorholder<DTYPE> *pBias = new Tensorholder<DTYPE>(Tensor<DTYPE>::Constants(1, 1, 1, 1, outputsize, 0.f), "Add_Bias_" + pName);
+        //     out = new AddColWise<DTYPE>(out, pBias, "Layer_Add_" + pName);
+        // }
 
         this->AnalyzeGraph(out);
 
         return TRUE;
     }
+//
+// #ifdef __CUDNN__
+// int ForwardPropagate(int pTime=0) {
+//
+//     int numOfExcutableOperator = this->GetNumOfExcutableOperator();
+//     Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
+//
+//     for(int ti=0; ti<timesize; ti++){
+//         for (int i = 0; i < numOfExcutableOperator; i++) {
+//             (*ExcutableOperator)[i]->ForwardPropagate(ti);
+//         }
+//     }
+//
+//
+//     return TRUE;
+// }
+//
+// int BackPropagate(int pTime=0) {
+//
+//     //if(pTime)
+//
+//     int numOfExcutableOperator = this->GetNumOfExcutableOperator();
+//     Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
+//
+//     for(int ti=timesize-1; ti>=0; ti--){
+//         for (int i = numOfExcutableOperator - 1; i >= 0; i--) {
+//             (*ExcutableOperator)[i]->BackPropagate(ti);
+//         }
+//     }
+//
+//
+//
+//     return TRUE;
+// }
+//
+// #endif  // __CUDNN__
+
 };
 
 

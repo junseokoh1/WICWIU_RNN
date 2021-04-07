@@ -173,6 +173,7 @@ template<typename DTYPE> DataLoader<DTYPE>::DataLoader(Dataset<DTYPE> *dataset, 
 
     // elicit information of data;
     m_lenOfDataset = m_pDataset->GetLength();
+    std::cout<<m_lenOfDataset<<'\n';
     assert(m_lenOfDataset > 0);
     m_numOfEachDatasetMember = m_pDataset->GetNumOfDatasetMember();
     assert(m_numOfEachDatasetMember > 0);
@@ -250,8 +251,10 @@ template<typename DTYPE> void DataLoader<DTYPE>::StopProcess() {
 template<typename DTYPE> void DataLoader<DTYPE>::MakeAllOfIndex(std::vector<int> *pAllOfIndex)
 {
     pAllOfIndex->resize(m_lenOfDataset);
-    for (int i = 0; i < m_lenOfDataset; i++)
-		(*pAllOfIndex)[i] = i;
+    for (int i = 0; i < m_lenOfDataset; i++){
+		    (*pAllOfIndex)[i] = i;
+    }
+
 }
 
 template<typename DTYPE> void DataLoader<DTYPE>::DistributeIdxOfData2Thread() {
@@ -317,20 +320,21 @@ template<typename DTYPE> void DataLoader<DTYPE>::DataPreprocess() {
         setOfIdx = this->GetIdxSetFromIdxBuffer();
 
         for (int i = 0; i < m_batchSize; i++) {
-            idx = (*setOfIdx)[i];
-            // printf("%d", idx);
-            //중요!!! 여기서 Tensor로 바뀌는거임!!!
-            data = m_pDataset->GetData(idx);            //GetData는 Dataset.hpp에 있음 근데 MNISTDataSet에도 구현되어 있음!!!
+              idx = (*setOfIdx)[i];
+              // printf("%d", idx);
+              //중요!!! 여기서 Tensor로 바뀌는거임!!!
+              data = m_pDataset->GetData(idx);            //GetData는 Dataset.hpp에 있음 근데 MNISTDataSet에도 구현되어 있음!!!
+              //std::cout<<" "<<i<<" ";
 
-            for (int j = 0; j < m_numOfEachDatasetMember; j++) {
-                // Chech the type of Data for determine doing preprocessing (IMAGE)
-                // if true do data Preprocessing
-                // push data into local buffer
-                localBuffer[j].push((*data)[j]);
-            }
+              for (int j = 0; j < m_numOfEachDatasetMember; j++) {
+                  // Chech the type of Data for determine doing preprocessing (IMAGE)
+                  // if true do data Preprocessing
+                  // push data into local buffer
+                  localBuffer[j].push((*data)[j]);
+              }
 
-            delete data;
-            data = NULL;
+              delete data;
+              data = NULL;
         }
 
         // delete set of idx vector
@@ -380,12 +384,18 @@ template<typename DTYPE> Tensor<DTYPE> *DataLoader<DTYPE>::Concatenate(std::queu
     // concatenate all preprocessed data into one tensor
     Tensor<DTYPE> *temp   = NULL;
     int capacity          = 1;
+    int timesize          = 1;
     Tensor<DTYPE> *result = NULL;
     // We need to consider Timesize
 
     temp     = setOfData.front();
     capacity = temp->GetCapacity();
-    result   = Tensor<DTYPE>::Zeros(1, m_batchSize, 1, 1, capacity);
+    timesize = temp->GetTimeSize();
+    int colsize = capacity/timesize;
+    //result   = Tensor<DTYPE>::Zeros(1, m_batchSize, 1, 1, capacity);
+    result   = Tensor<DTYPE>::Zeros(timesize, m_batchSize, 1, 1, colsize);
+
+    Shape *resultShape = result->GetShape();
 
     // std::cout << result->GetShape() << '\n';
     // std::cout << setOfData.size() << '\n';
@@ -394,7 +404,15 @@ template<typename DTYPE> Tensor<DTYPE> *DataLoader<DTYPE>::Concatenate(std::queu
         temp = setOfData.front();
         setOfData.pop();
 
-        for (int j = 0; j < capacity; j++) (*result)[i * capacity + j] = (*temp)[j];
+        Shape *tempShape = temp->GetShape();
+
+        for (int ti = 0; ti < timesize; ti++){
+            for(int co=0; co < colsize; co++){
+              //(*result)[i * capacity + j] = (*temp)[j];
+
+              (*result)[Index5D(resultShape, ti, i, 0, 0, co)] = (*temp)[Index5D(tempShape, ti, 0, 0, 0, co)];
+            }
+        }
 
         delete temp;
         temp = NULL;
@@ -408,6 +426,7 @@ template<typename DTYPE> Tensor<DTYPE> *DataLoader<DTYPE>::Concatenate(std::queu
 
     return result;
 }
+
 
 template<typename DTYPE> void DataLoader<DTYPE>::Push2GlobalBuffer(std::vector<Tensor<DTYPE> *> *preprocessedData) {
     sem_wait(&m_globalEmpty);

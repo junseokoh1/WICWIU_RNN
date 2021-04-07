@@ -62,7 +62,7 @@ private:
 
 public:
 
-    int  AddOutputEdgeRNN(Operator<DTYPE> *pOutput, Operator<DTYPE> *pop);                             //내가 추가함
+    int  AddOutputEdgeRNN(Operator<DTYPE> *pOutput, Operator<DTYPE> *pop);                             //내가 추가함    사용안하는거 같음!!!
 
     Operator(std::string pName = "NO NAME", int pLoadflag = TRUE);
     Operator(Operator<DTYPE> *pInput, std::string pName = "NO NAME", int pLoadflag = TRUE);
@@ -109,6 +109,9 @@ public:
     int                                   GetIsTensorholder();
     int                                   GetIsTrainable();
 
+    //Getter 추가!
+    Mode                                  GetMode();
+
     virtual int                           ForwardPropagate(int pTime = 0);
     virtual int                           BackPropagate(int pTime = 0);
 
@@ -129,6 +132,13 @@ public:
 
     virtual int                           Load(FILE *fp);
     virtual int                           Save(FILE *fp);
+
+    //rnn에서 hidden값 가져오기 위해 추가
+    virtual Tensor<DTYPE>*                GetHidden(Operator<DTYPE>* padding=NULL);
+
+    //attention때문에 추가!
+    virtual int                           SetQuery(Operator<DTYPE> *pQuery);
+
 #ifdef __CUDNN__
     int                                   SetCudnnHandle(cudnnHandle_t& pCudnnHandle);
     virtual int                           SetResultOnGPU(unsigned int idOfDevice);
@@ -454,6 +464,8 @@ template<typename DTYPE> Operator<DTYPE>::Operator(int numInput, ...) {
     m_idOfDevice  = -1;
     Alloc();
 
+    std::cout<<"Operator 생성자! 숫자로 받는거 호출!"<<'\n';
+
     va_list ap;
     va_start(ap, numInput);
     AddEdgebetweenOperators(numInput, ap);
@@ -731,6 +743,10 @@ template<typename DTYPE> int Operator<DTYPE>::GetIsTrainable() {
     return m_isTrainable;
 }
 
+template<typename DTYPE> Mode Operator<DTYPE>::GetMode() {
+    return m_Mode;
+}
+
 /*!
  * @brief  ForwardPropagate 매소드. 실제 구현은 파생 클래스에서 정의된다.
  * @param pTime ForwardPropagate할 데이터의 Time값.
@@ -880,6 +896,19 @@ template<typename DTYPE> int Operator<DTYPE>::Load(FILE *fp) {
     for (int i = 0; i < size; i++) {
         (*m_aaResult)[i]->Load(fp);
     }
+    return TRUE;
+}
+
+//rnn에서 hidden값 가져오기 위해 추가
+template<typename DTYPE> Tensor<DTYPE>* Operator<DTYPE>::GetHidden(Operator<DTYPE>* padding){
+    std::cout<<"????????????????????????????????????????????";
+}
+
+//attention때문에 추가
+template<typename DTYPE> int Operator<DTYPE>::SetQuery(Operator<DTYPE> *pQuery) {
+    #ifdef __DEBUG__
+
+    #endif  // __DEBUG__
     return TRUE;
 }
 
