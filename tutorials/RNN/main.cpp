@@ -16,10 +16,10 @@
 using namespace std;
 
 #define EMBEDDIM               64
-#define TIME                   300
-#define BATCH                  16         //seqLength * batchsize < number of word!
+#define TIME                   100
+#define BATCH                  2         //seqLength * batchsize < number of word!
 #define EPOCH                  4
-#define MAX_TRAIN_ITERATION    400   // (60000 / BATCH)
+#define MAX_TRAIN_ITERATION    500   // (60000 / BATCH)
 #define MAX_TEST_ITERATION     1   // (10000 / BATCH)
 #define GPUID                  2
 
@@ -55,8 +55,8 @@ int main(int argc, char const *argv[]) {
 
 
     //FinalTextDataset 2021/3/29
-    // RNNWordLevelDataset<float>* rnnWordData = new RNNWordLevelDataset<float>("Data/middlesize.txt", TIME);
-    RNNWordLevelDataset<float>* rnnWordData = new RNNWordLevelDataset<float>("Data/shakespeare.txt", TIME);
+    RNNWordLevelDataset<float>* rnnWordData = new RNNWordLevelDataset<float>("Data/middlesize.txt", TIME);
+    //RNNWordLevelDataset<float>* rnnWordData = new RNNWordLevelDataset<float>("Data/shakespeare.txt", TIME);
 
     rnnWordData->BuildVocab();
 
@@ -245,28 +245,18 @@ int main(int argc, char const *argv[]) {
 
             //-----------------------------------------------------------------------------------------------------
 
-            std::cout<<'\n'<<"menenius 시작"<<'\n';
-            startIndex = Vocab2Index->at("menenius");
-            //startIndex = dataset->word2index("Before");
-            net->GenerateSentence(TIME, Index2Vocab, startIndex, vocab_size);
-
-
-            std::cout<<'\n'<<"than 시작"<<'\n';
-            startIndex = Vocab2Index->at("than");
-            //startIndex = dataset->word2index("Before");
-            net->GenerateSentence(TIME, Index2Vocab, startIndex, vocab_size);
-
-
+            // std::cout<<'\n'<<"menenius 시작"<<'\n';
+            // startIndex = Vocab2Index->at("menenius");
+            // //startIndex = dataset->word2index("Before");
+            // net->GenerateSentence(TIME, Index2Vocab, startIndex, vocab_size);
+            //
+            //
             // std::cout<<'\n'<<"than 시작"<<'\n';
             // startIndex = Vocab2Index->at("than");
             // //startIndex = dataset->word2index("Before");
             // net->GenerateSentence(TIME, Index2Vocab, startIndex, vocab_size);
 
-            //동작하는거 같음!!!!
-            //이상한 방법이지만 길이 늘려보기!!!
-            // Tensor<float> *x_t = new Tensor<float>(TIME, BATCH, 1, 1, 1);
-            // Tensor<float> *l_t = new Tensor<float>(TIME, BATCH, 1, 1, vocab_size);
-            // net->FeedInputTensor(2, x_t, l_t);
+
 
 
 

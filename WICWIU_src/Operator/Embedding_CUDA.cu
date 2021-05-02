@@ -29,7 +29,7 @@ template<typename DTYPE> int Embedding<DTYPE>::ForwardPropagateOnGPU(int pTime) 
         int noBlock = 3, threadsPerBlock = 128;
 
 
-        //std::cout<<"Embedding<DTYPE>::ForwardPropagateOnGPU : "<<pTime<<'\n';
+        // std::cout<<"Embedding<DTYPE>::ForwardPropagateOnGPU : "<<pTime<<'\n';
 
         Tensor<DTYPE> *weight  = this->GetInput()[0]->GetResult();
         Tensor<DTYPE> *input  = this->GetInput()[1]->GetResult();
@@ -37,6 +37,13 @@ template<typename DTYPE> int Embedding<DTYPE>::ForwardPropagateOnGPU(int pTime) 
 
         // std::cout<<weight->GetShape()<<'\n';
         // std::cout<<input->GetShape()<<'\n';
+
+        //2 : INFERENCE  SentenceTranslate 할때 잘 동작하나 확인하기 위한 코드
+        // if(this->GetMode() == 2){
+        //     std::cout<<"Embedding<DTYPE>::ForwardPropagateOnGPU : "<<pTime<<'\n';
+        //     std::cout<<input->GetShape()<<'\n';
+        //     std::cout<<input<<'\n';
+        // }
 
         int batchsize        = result->GetBatchSize();
         int inputcolsize     = input->GetColSize();

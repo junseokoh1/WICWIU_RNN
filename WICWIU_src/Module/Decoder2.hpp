@@ -9,7 +9,7 @@ private:
 
     int timesize;
 
-    Operator<DTYPE> *m_initHiddenTensorholder;
+    Operator<DTYPE> *m_initHiddenTensorholder;            //이거 setDeviceGPU를 RNN에서 해줌!!!.. GRU, LSTM도 이거 처리해주도록 추가해야됨!
 
     Operator<DTYPE> *m_EncoderLengths;
 
@@ -53,7 +53,7 @@ public:
         // Tensorholder<DTYPE> *rBias = new Tensorholder<DTYPE>(Tensor<DTYPE>::Constants(1, 1, 1, 1, hiddensize, 0.f), "RNN_Bias_" + pName);
 
         //Embedding 추가!!!
-        out = new EmbeddingLayer<float>(out, vocabLength, embeddingDim, "Embedding");
+        out = new EmbeddingLayer<DTYPE>(out, vocabLength, embeddingDim, "Embedding");
 
         // out = new SeqRecurrent<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias, m_initHiddenTensorholder);                           //tensor 넘겨주는지 operator 넘겨주는지 이걸로ㄱㄱ!!!
         //
@@ -64,13 +64,13 @@ public:
         //     out = new AddColWise<DTYPE>(out, pBias, "Layer_Add_" + pName);
         // }
 
-          out = new RecurrentLayer<float>(out, embeddingDim, hiddensize, outputsize, m_initHiddenTensorholder, use_bias, "Recur_1");
-        //out = new LSTM2Layer<float>(out, embeddingDim, hiddensize, outputsize, m_initHiddenTensorholder, TRUE, "Recur_1");
-        //out = new GRULayer<float>(out, embeddingDim, hiddensize, m_initHiddenTensorholder, TRUE, "Recur_1");
+          // out = new RecurrentLayer<DTYPE>(out, embeddingDim, hiddensize, outputsize, m_initHiddenTensorholder, use_bias, "Recur_1");
+          // out = new LSTM2Layer<float>(out, embeddingDim, hiddensize, m_initHiddenTensorholder, TRUE, "Recur_1");
+          out = new GRULayer<float>(out, embeddingDim, hiddensize, m_initHiddenTensorholder, TRUE, "Recur_1");
 
 
         //이제 h2o을 밖으로!
-        out = new Linear<float>(out, hiddensize, outputsize, TRUE, "Fully-Connected-H2O");
+        out = new Linear<DTYPE>(out, hiddensize, outputsize, TRUE, "Fully-Connected-H2O");
 
         this->AnalyzeGraph(out);
 
@@ -78,7 +78,7 @@ public:
     }
 
 
-/*
+
     //************************************************************************************gethidden사용 하기 전에 FowardBackward****************************************************************************
     int ForwardPropagate(int pTime=0) {
 
@@ -105,14 +105,14 @@ public:
                           (*initHidden)[Index5D(initShape, 0, ba, 0, 0, co)] = (*_initHidden)[Index5D(_initShape, (*encoderLengths)[ba]-1, ba, 0, 0, co)];     //padding을 추가한다면 이 부분이 수정이 필요! ba의 값에따라 enTimesize가 바뀌어야 함!!!
                       }
                   }
-              }
-              else{
+              }else{
+
                   for(int ba=0; ba<batchsize; ba++){
                       for(int co=0; co<colSize; co++){
                           (*initHidden)[Index5D(initShape, 0, ba, 0, 0, co)] = (*_initHidden)[Index5D(_initShape, enTimesize-1, ba, 0, 0, co)];     //padding을 추가한다면 이 부분이 수정이 필요! ba의 값에따라 enTimesize가 바뀌어야 함!!!
                       }
                   }
-              }
+            }
         }
 
         int numOfExcutableOperator = this->GetNumOfExcutableOperator();
@@ -186,145 +186,56 @@ public:
         return TRUE;
     }
     //************************************************************************************gethidden사용 하기 전에 FowardBackward**************************************************************
+
+
+
+
+
+
+  #ifdef __CUDNN__
+
+      int ForwardPropagateOnGPU(int pTime = 0);
+
+      int BackPropagateOnGPU(int pTime = 0);
+/*
+int ForwardPropagateOnGPU(int pTime) {
+
+  //encoder에서 decoder로 복사!
+      if(pTime == 0){
+
+          int noBlock = 3, threadsPerBlock = 128;
+
+          Tensor<DTYPE> *encoderLengths = m_EncoderLengths->GetResult();
+
+          //Data 접근!
+          Tensor<DTYPE> *_initHidden = this->GetInput()[1]->GetResult();
+          Tensor<DTYPE> *initHidden = m_initHiddenTensorholder->GetResult();
+
+          //batchsize, colsize
+          int batchsize  = _initHidden->GetBatchSize();
+          int colSize    = _initHidden->GetColSize();
+
+          for(int ba = 0; ba < batchsize; ba++){
+
+              DTYPE *m_pDevEncoderHidden  = _initHidden->GetGPUData((*encoderLengths)[ba]-1);
+              DTYPE *m_pDevinitHidden  = initHidden->GetGPUData(0);
+
+            //  ForwardPropagate_kernel << < noBlock, threadsPerBlock >> > (m_pDevEncoderHidden, m_pDevinitHidden, ba, colSize);
+
+          }
+
+      }
+
+      int numOfExcutableOperator = this->GetNumOfExcutableOperator();
+      Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
+
+      for (int i = 0; i < numOfExcutableOperator; i++) {
+          (*ExcutableOperator)[i]->ForwardPropagateOnGPU(pTime);
+      }
+      return TRUE;
+}
 */
-
-
-
-    int ForwardPropagate(int pTime=0) {
-
-
-        if(pTime == 0){
-              //Encoder의 마지막값 복사해주기!
-              Tensor<DTYPE> *_initHidden = this->GetInput()[1]->GetResult();
-              Tensor<DTYPE> *initHidden = m_initHiddenTensorholder->GetResult();
-
-              Shape *_initShape = _initHidden->GetShape();
-              Shape *initShape = initHidden->GetShape();
-
-              int enTimesize = _initHidden->GetTimeSize();
-              int batchsize  = _initHidden->GetBatchSize();
-              int colSize    = _initHidden->GetColSize();
-
-              if( m_EncoderLengths != NULL){
-
-                  Tensor<DTYPE> *encoderLengths = m_EncoderLengths->GetResult();
-
-                  for(int ba=0; ba<batchsize; ba++){
-                      for(int co=0; co<colSize; co++){
-                          (*initHidden)[Index5D(initShape, 0, ba, 0, 0, co)] = (*_initHidden)[Index5D(_initShape, (*encoderLengths)[ba]-1, ba, 0, 0, co)];     //padding을 추가한다면 이 부분이 수정이 필요! ba의 값에따라 enTimesize가 바뀌어야 함!!!
-                      }
-                  }
-              }
-              else{
-                  for(int ba=0; ba<batchsize; ba++){
-                      for(int co=0; co<colSize; co++){
-                          (*initHidden)[Index5D(initShape, 0, ba, 0, 0, co)] = (*_initHidden)[Index5D(_initShape, enTimesize-1, ba, 0, 0, co)];     //padding을 추가한다면 이 부분이 수정이 필요! ba의 값에따라 enTimesize가 바뀌어야 함!!!
-                      }
-                  }
-              }
-        }
-
-        int numOfExcutableOperator = this->GetNumOfExcutableOperator();
-        Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
-
-        for (int i = 0; i < numOfExcutableOperator; i++)
-            (*ExcutableOperator)[i]->ForwardPropagate(pTime);
-
-        return TRUE;
-    }
-
-
-    int BackPropagate(int pTime=0) {
-
-        // std::cout<<"----------------Decoder Backward 호출----------------"<<'\n';
-
-        int numOfExcutableOperator = this->GetNumOfExcutableOperator();
-        Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
-
-        for (int i = numOfExcutableOperator - 1; i >= 0; i--) {
-            (*ExcutableOperator)[i]->BackPropagate(pTime);
-            //std::cout<<(*ExcutableOperator)[i]->GetName()<<'\n';
-        }
-
-
-        if(pTime == 0){
-
-              Tensor<DTYPE> *enGradient = this->GetInput()[1]->GetGradient();
-              Tensor<DTYPE> *_enGradient = m_initHiddenTensorholder->GetGradient();
-
-              Shape *enShape  = enGradient->GetShape();
-              Shape *_enShape = _enGradient->GetShape();
-
-              int enTimesize = enGradient->GetTimeSize();
-              int batchSize = enGradient->GetBatchSize();
-              int colSize = enGradient->GetColSize();
-
-
-              if( m_EncoderLengths != NULL){
-
-                  Tensor<DTYPE> *encoderLengths = m_EncoderLengths->GetResult();
-
-                  for(int ba=0; ba < batchSize; ba++){
-                      for(int co=0; co < colSize; co++){
-                          (*enGradient)[Index5D(enShape, (*encoderLengths)[ba]-1, ba, 0, 0, co)] = (*_enGradient)[Index5D(_enShape, 0, ba, 0, 0, co)];   //+=으로 수정해야 되는거 아닌가!!!
-                      }
-                  }
-
-              }
-              else{
-                  for(int ba=0; ba < batchSize; ba++){
-                      for(int co=0; co < colSize; co++){
-                          (*enGradient)[Index5D(enShape, enTimesize-1, ba, 0, 0, co)] = (*_enGradient)[Index5D(_enShape, 0, ba, 0, 0, co)];   //+=으로 수정해야 되는거 아닌가!!!
-                      }
-                  }
-              }
-
-        }
-
-        return TRUE;
-    }
-
-
-    #if __CUDNN__
-
-    template<typename DTYPE> int Module<DTYPE>::ForwardPropagateOnGPU(int pTime) {
-
-
-        //encoder에서 decoder로 복사!
-        if(pTime == 0){
-
-
-
-        }
-
-        int numOfExcutableOperator = this->GetNumOfExcutableOperator();
-        Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
-
-        for (int i = 0; i < m_numOfExcutableOperator; i++) {
-            (*m_aaExcutableOperator)[i]->ForwardPropagateOnGPU(pTime);
-        }
-        return TRUE;
-    }
-
-    /*!
-     * @brief GPU를 이용해 모듈 그래프의 역전파를 수행하는 메소드
-     * @details 역순으로 Excutable Operator Container의 각 Operator들에서 Operator<DTYPE>::BackPropagateOnGPU(int pTime) 메소드를 호출한다.
-     * @param pTime 각 BackPropagateOnGPU 메소드에 전달할 Time의 인덱스
-     * @return TRUE
-     */
-    template<typename DTYPE> int Module<DTYPE>::BackPropagateOnGPU(int pTime) {
-
-        int numOfExcutableOperator = this->GetNumOfExcutableOperator();
-        Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
-
-        for (int i = m_numOfExcutableOperator - 1; i >= 0; i--) {
-            (*m_aaExcutableOperator)[i]->BackPropagateOnGPU(pTime);
-        }
-        return TRUE;
-    }
-
-
-    #endif // CUDNN
+  #endif // CUDNN
 
 };
 

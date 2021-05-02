@@ -516,7 +516,7 @@ template<typename DTYPE> void RNNParalleledCorpusDataset<DTYPE>::BuildVocab() {
       //cout << word << endl;
       temp_first_indexed_words.push_back(this->GetpVocab2Index()->at(word));
     }
-    while(temp_first_indexed_words.size() > this->GetEncoderMaxTime()){                 //오류 ????
+    while(temp_first_indexed_words.size() > this->GetEncoderMaxTime()){                 //오류 ????  <
       temp_first_indexed_words.push_back(this->GetpVocab2Index()->at("<PAD>"));
     }
     temp_words = this->SplitBy(m_pairedSentences->at(i).second, ' ');

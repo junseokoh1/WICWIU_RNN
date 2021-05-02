@@ -7,7 +7,7 @@ WICWIU_LIB = lib/libwicwiu.a
 
 
 #	if CUDA device, cuda or cuDNN is not installed, disable the following line
-#ENABLE_CUDNN = -D__CUDNN__
+ENABLE_CUDNN = -D__CUDNN__
 
 #	uncomment the following to debug
 #DFLAGS = -D__DEBUG__
@@ -53,7 +53,9 @@ ifdef	ENABLE_CUDNN
 		WICWIU_src/Optimizer/AdagradOptimizer_CUDA.cu \
 		WICWIU_src/Optimizer/RMSPropOptimizer_CUDA.cu \
 		WICWIU_src/LossFunction/SoftmaxCrossEntropy_CUDA.cu \
-		WICWIU_src/Operator/Embedding_CUDA.cu
+		WICWIU_src/LossFunction/SoftmaxCrossEntropy_padding_CUDA.cu \
+		WICWIU_src/Operator/Embedding_CUDA.cu \
+		WICWIU_src/Module/Decoder2_CUDA.cu
 
 	WICWIU_CUDA_OBJS = ${WICWIU_CUDA_SRCS:.cu=.o}
 endif
@@ -91,8 +93,14 @@ WICWIU_src/Operator/PRelu_CUDA.o: WICWIU_src/Operator/PRelu_CUDA.cu
 
 WICWIU_src/LossFunction/SoftmaxCrossEntropy_CUDA.o: WICWIU_src/LossFunction/SoftmaxCrossEntropy_CUDA.cu
 	$(NVCC) $(CFLAGS) $(DFLAGS) $(ENABLE_CUDNN) $(INCLUDE_PATH) -c $< -o $@
+#i add
+WICWIU_src/LossFunction/SoftmaxCrossEntropy_padding_CUDA.o: WICWIU_src/LossFunction/SoftmaxCrossEntropy_padding_CUDA.cu
+	$(NVCC) $(CFLAGS) $(DFLAGS) $(ENABLE_CUDNN) $(INCLUDE_PATH) -c $< -o $@
 
 WICWIU_src/Operator/Embedding_CUDA.o: WICWIU_src/Operator/Embedding_CUDA.cu
+	$(NVCC) $(CFLAGS) $(DFLAGS) $(ENABLE_CUDNN) $(INCLUDE_PATH) -c $< -o $@
+
+WICWIU_src/Module/Decoder2_CUDA.o: WICWIU_src/Module/Decoder2_CUDA.cu
 	$(NVCC) $(CFLAGS) $(DFLAGS) $(ENABLE_CUDNN) $(INCLUDE_PATH) -c $< -o $@
 
 $(WICWIU_LIB): $(WICWIU_OBJS) $(WICWIU_CUDA_OBJS)

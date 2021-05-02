@@ -10,8 +10,8 @@ public:
     /*!
     @brief LSTMLayer 클래스 생성자
     @details LSTMLayer 클래스의 Alloc 함수를 호출한다.*/
-    LSTM2Layer(Operator<DTYPE> *pInput, int inputsize, int hiddensize, int outputsize, Operator<DTYPE> *initHidden, int use_bias = TRUE, std::string pName = "No Name") : Module<DTYPE>(pName) {
-        Alloc(pInput, inputsize, hiddensize, outputsize, initHidden, use_bias, pName);
+    LSTM2Layer(Operator<DTYPE> *pInput, int inputsize, int hiddensize,  Operator<DTYPE> *initHidden, int use_bias = TRUE, std::string pName = "No Name") : Module<DTYPE>(pName) {
+        Alloc(pInput, inputsize, hiddensize, initHidden, use_bias, pName);
     }
 
     /*!
@@ -28,7 +28,7 @@ public:
     @return TRUE
     @see
     */
-    int Alloc(Operator<DTYPE> *pInput, int inputsize, int hiddensize, int outputsize, Operator<DTYPE> *initHidden, int use_bias, std::string pName) {
+    int Alloc(Operator<DTYPE> *pInput, int inputsize, int hiddensize, Operator<DTYPE> *initHidden, int use_bias, std::string pName) {
         this->SetInput(pInput);
 
         Operator<DTYPE> *out = pInput;

@@ -30,6 +30,7 @@ public:
     */
     int Alloc(Operator<DTYPE> *pInput, int inputsize, int hiddensize, int outputsize, Operator<DTYPE>* initHidden, int use_bias, std::string pName) {
         this->SetInput(pInput);
+        // this->SetInput(2, pInput, initHidden);      //이렇게 하면 문제가 생김...
 
         Operator<DTYPE> *out = pInput;
 
@@ -51,7 +52,7 @@ public:
 #endif  // __CUDNN__
 
 
-        Tensorholder<DTYPE> *pWeight_h2o = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, outputsize, hiddensize, 0.0, 0.01), "RecurrentLayer_pWeight_h2o_" + pName);
+        //Tensorholder<DTYPE> *pWeight_h2o = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, outputsize, hiddensize, 0.0, 0.01), "RecurrentLayer_pWeight_h2o_" + pName);
 
         //recurrent 내에 bias 추가 하는 거!
         Tensorholder<DTYPE> *rBias = new Tensorholder<DTYPE>(Tensor<DTYPE>::Constants(1, 1, 1, 1, hiddensize, 0.f), "RNN_Bias_" + pName);
@@ -63,8 +64,7 @@ public:
         out = new SeqRecurrent<DTYPE>(out, pWeight_x2h, pWeight_h2h, rBias, initHidden);
 
 
-        //매우매우 중요!!!!! cudnn 때문에 hidden2out, bias 부분 없애줌 -> BPTT에서 호출을 딱 한번만 해서!!!    cudnn에서 처리해주는건 아닌데... 일단은 결과 보려고 하는거!...
-
+        //이제 h2o 부분은 밖으로 제외시킴!!!
         // out = new MatMul<DTYPE>(pWeight_h2o, out, "rnn_matmul_ho");
         //
         // if (use_bias) {

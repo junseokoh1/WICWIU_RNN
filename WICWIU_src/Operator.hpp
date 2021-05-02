@@ -134,7 +134,7 @@ public:
     virtual int                           Save(FILE *fp);
 
     //rnn에서 hidden값 가져오기 위해 추가
-    virtual Tensor<DTYPE>*                GetHidden(Operator<DTYPE>* padding=NULL);
+    // virtual Tensor<DTYPE>*                GetHidden(Operator<DTYPE>* padding=NULL);
 
     //attention때문에 추가!
     virtual int                           SetQuery(Operator<DTYPE> *pQuery);
@@ -900,9 +900,9 @@ template<typename DTYPE> int Operator<DTYPE>::Load(FILE *fp) {
 }
 
 //rnn에서 hidden값 가져오기 위해 추가
-template<typename DTYPE> Tensor<DTYPE>* Operator<DTYPE>::GetHidden(Operator<DTYPE>* padding){
-    std::cout<<"????????????????????????????????????????????";
-}
+// template<typename DTYPE> Tensor<DTYPE>* Operator<DTYPE>::GetHidden(Operator<DTYPE>* padding){
+//     std::cout<<"????????????????????????????????????????????";
+// }
 
 //attention때문에 추가
 template<typename DTYPE> int Operator<DTYPE>::SetQuery(Operator<DTYPE> *pQuery) {

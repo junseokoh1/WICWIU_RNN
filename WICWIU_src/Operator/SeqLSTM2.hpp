@@ -233,6 +233,9 @@ public:
             //int hidColSize     = (*WeightXHShape)[3]/4;                             //여기!!!                 // 여기서 사이즈 수정해주기!!!!!!
             int hidColSize     = (*WeightHGShape)[3];
 
+            //inithidden 값을 저장하고 있는 operator도  GPU로 올려야 될거 같음!
+            if(m_aInitHidden != NULL)
+             m_aInitHidden->SetDeviceGPU(this->GetCudnnHandle(), idOfDevice);
 
             std::cout<<"hidTimeSize : "<<hidTimeSize<<'\n';
             std::cout<<"hidBatchSize : "<<hidBatchSize<<'\n';
@@ -407,6 +410,13 @@ public:
            checkCudaErrors(cudaMalloc((DTYPE**)&dy, output_length * sizeof(DTYPE)));
 
            //hx, cx와 같은 부분은 필요 없는 듯
+           //hx즉 inithidden값이 있을 때 설정해주기!!!
+           if(m_aInitHidden != NULL){
+              checkCudaErrors(cudaMalloc((DTYPE**)&hx, hidColSize * hidBatchSize * sizeof(DTYPE)));
+              checkCudaErrors(cudaMalloc((DTYPE**)&dhx, hidColSize * hidBatchSize * sizeof(DTYPE)));
+            }
+
+
            //dw는 어떻게 하지?... -> 이거는 time마다 있는게 아니니깐 그냥 wicwiu방식으로 하면 될 듯?
 
            //weight도 해보자!
@@ -702,8 +712,8 @@ public:
 
         int timeSize        = input->GetTimeSize();
 
-        if(this->GetMode() == 0 && pTime != timeSize-1)                   //여기 주석처리해도 문제는 안생김.... 다만 느려질 뿐...!
-          return TRUE;
+        // if(this->GetMode() == 0 && pTime != timeSize-1)                   //여기 주석처리해도 문제는 안생김.... 다만 느려질 뿐...!
+        //   return TRUE;
 
         //입력 잘 들어감!
         // std::cout<<"Forward"<<'\n';
@@ -714,8 +724,21 @@ public:
         //NULL해도 되는거 처리하기
         cx = NULL;
         cy = NULL;
-        hx = NULL;
+        // hx = NULL;
         hy = NULL;
+
+        //inithidden값이 있는 경우!!!
+        if(m_aInitHidden != NULL){
+
+          Tensor<DTYPE> *initHidden = m_aInitHidden->GetResult();
+          int m_Capacity = initHidden->GetCapacity();               //time = 0이니깐
+          DTYPE * wicwiuInitHidden = initHidden->GetGPUData(0);
+
+          checkCudaErrors(cudaMemcpy(&hx[0], wicwiuInitHidden, (m_Capacity * sizeof(DTYPE)), cudaMemcpyDeviceToDevice));         //여기서 error...
+        }
+        else{
+          hx = NULL;
+        }
 
         //입력은 복사
         int m_CapacityPerTime = input->GetCapacity() / timeSize;
@@ -786,8 +809,25 @@ public:
         dcy = NULL;
         cx = NULL;
         dcx = NULL;
-        hx = NULL;
-        dhx = NULL;
+        // hx = NULL;
+        // dhx = NULL;
+
+        //inithidden값이 있는 경우!!!
+        if(m_aInitHidden != NULL){
+
+          // std::cout<<"GPU Back initHidden 처리"<<'\n';
+
+          Tensor<DTYPE> *initHidden = m_aInitHidden->GetResult();
+          int m_Capacity = initHidden->GetCapacity();               //time = 0이니깐
+          DTYPE * wicwiuInitHidden = initHidden->GetGPUData(0);
+
+          checkCudaErrors(cudaMemcpy(&hx[0], wicwiuInitHidden, (m_Capacity * sizeof(DTYPE)), cudaMemcpyDeviceToDevice));
+        }
+        else
+        {
+            hx = NULL;
+            dhx = NULL;
+        }
 
         //y, dy 하나의 sequence로 만들어서 넣어주기!
 
@@ -837,6 +877,16 @@ public:
             DTYPE *wicwiuX_delta       = input_delta->GetGPUData(i);
             checkCudaErrors(cudaMemcpy(wicwiuX_delta, &dx[m_CapacityPerTime*i], (m_CapacityPerTime * sizeof(DTYPE)), cudaMemcpyDeviceToDevice));
 
+        }
+
+        //inithidden값이 있는 경우 --> dhx값을 inithidden gradient에 넣어주기!
+        if(m_aInitHidden != NULL){
+
+          Tensor<DTYPE> *initHidden = m_aInitHidden->GetGradient();
+          int m_Capacity = initHidden->GetCapacity();               //time = 0이니깐
+          DTYPE * wicwiuInitHidden = initHidden->GetGPUData(0);
+
+          checkCudaErrors(cudaMemcpy(wicwiuInitHidden, &dhx[0], (m_Capacity * sizeof(DTYPE)), cudaMemcpyDeviceToDevice));
         }
 
         /////////////////////////////////////////////////////
@@ -910,7 +960,7 @@ public:
 
         //initHidden
         if(m_aInitHidden != NULL)
-           m_aInitHidden->GetResult();
+           m_aInitHidden->ResetResult();
 
         Tensor<DTYPE> *result = this->GetResult();
         result->Reset();

@@ -72,6 +72,7 @@ public:
     int                  GenerateSentence(int maxTimeSize, std::string* vocab, int startIndex, int numOfClass);
     int                  GenerateSentence(int maxTimeSize, std::map<int, std::string>* Index2Vocab, int startIndex, int vocabSize);               //textdataset 통합하면서 수정!
     int                  SentenceTranslate(std::map<int, std::string>* index2vocab);
+    int                  SentenceTranslateOnGPU(std::map<int, std::string>* index2vocab);
 
 
 
@@ -101,6 +102,7 @@ public:
     int                  BPTT_TestOnCPU(int timesize);
     int                  BPTT_TestOnGPU(int timesize);
     int                  seq2seqBPTT(int EncTimeSize, int DecTimeSize);
+    int                  seq2seqBPTTOnGPU(int EncTimeSize, int DecTimeSize);
 
 
 #ifdef __CUDNN__
@@ -614,7 +616,7 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::GenerateSentence(int maxTimeS
 
 
 
-//seq 2 seq  때문에 추가*************************************************************************************************************************
+//****************************************************seq 2 seq  때문에 추가*************************************************************************************************************************
 
 
 //seq-to-seq때문에 추가한 BPTT 잘 동작하면 RNN,LSTM,GRU로 이 함수를 사용하도록 수정!
@@ -671,6 +673,45 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::seq2seqBPTT(int EncTimeSize, 
     }
 
     m_aOptimizer->UpdateParameter();
+
+    return TRUE;
+}
+
+template<typename DTYPE> int NeuralNetwork<DTYPE>::seq2seqBPTTOnGPU(int EncTimeSize, int DecTimeSize) {
+#ifdef __CUDNN__
+    this->ResetResult();
+    this->ResetGradient();
+    this->ResetLossFunctionResult();
+    this->ResetLossFunctionGradient();
+
+    Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
+
+    //encoder forward
+    for(int i =0; i<EncTimeSize; i++)
+        (*ExcutableOperator)[0]->ForwardPropagateOnGPU(i);
+
+    //Decoder & lossfunction forward
+    for(int i=0; i<DecTimeSize; i++){
+      (*ExcutableOperator)[1]->ForwardPropagateOnGPU(i);
+      m_aLossFunction->ForwardPropagateOnGPU(i);
+    }
+
+    //Decoder & loss function backward
+    for(int j=DecTimeSize-1; j>=0; j--){
+      m_aLossFunction->BackPropagateOnGPU(j);
+      (*ExcutableOperator)[1]->BackPropagateOnGPU(j);
+    }
+
+    //Encoder backward
+    for(int j=EncTimeSize-1; j>=0; j--){
+      (*ExcutableOperator)[0]->BackPropagateOnGPU(j);
+    }
+
+    m_aOptimizer->UpdateParameterOnGPU();
+#else
+    std::cout<<"There is no GPU option!"<<'\n';
+    exit(-1);
+#endif
 
     return TRUE;
 }
@@ -745,8 +786,79 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::SentenceTranslate(std::map<in
 
 }
 
+template<typename DTYPE> int NeuralNetwork<DTYPE>::SentenceTranslateOnGPU(std::map<int, std::string>* index2vocab){
 
-//seq 2 seq  때문에 추가*************************************************************************************************************************
+
+    //Result
+    Tensor<DTYPE> *pred = this->GetResult();
+
+    //DecoderInput
+    Tensor<DTYPE> *DecoderInput = this->GetInput()[1]->GetResult();
+    Shape *InputShape = DecoderInput->GetShape();
+
+    //encoder, decoder time size
+    int EncoderTimeSize = this->GetInput()[0]->GetResult()->GetTimeSize();
+    int DecoderTimeSize = DecoderInput->GetTimeSize();
+
+    //Encoder, Decoder module access
+    int numOfExcutableOperator = this->GetNumOfExcutableOperator();
+    Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
+
+    // std::cout<<"num : "<<numOfExcutableOperator<<'\n';
+    // std::cout<<(*ExcutableOperator)[0]->GetName()<<'\n';
+    // std::cout<<(*ExcutableOperator)[1]->GetName()<<'\n';
+
+    //encoder forward
+    for(int ti = 0; ti < EncoderTimeSize; ti++)
+        (*ExcutableOperator)[0]->ForwardPropagateOnGPU(ti);
+
+    //decoder input holder tensor에 접근해서?....
+    // shape : [DecoderTime, BATCH, 1, 1, 1]
+
+    //첫번째 입력은 SOS
+    (*DecoderInput)[0] = 1;                               //접근 이렇게 해도 상관없나.....
+
+    // std::cout<<"번역 시작"<<'\n';
+    // std::cout<<DecoderInput<<'\n';
+
+    for(int ti = 0; ti < DecoderTimeSize; ti++){
+
+        //decoder forward
+        (*ExcutableOperator)[1]->ForwardPropagateOnGPU(ti);
+
+        //GetMaxIndex(Tensor<DTYPE> *data, int ba, int ti, int numOfClass) -- batch는 무조건 0으로 설정!
+        int pred_index = GetMaxIndex(pred, 0, ti, pred->GetColSize());
+
+        //출력하기!
+        std::cout<<pred_index<<" : ";
+        std::cout<<index2vocab->at(pred_index)<<'\n';
+
+
+        //EOS이면 끝내기!
+        if( pred_index == 2)
+          break;
+
+        //결과값 입력값으로 복사!
+        if(ti != DecoderTimeSize-1){
+            (*DecoderInput)[Index5D(InputShape, ti+1, 0, 0, 0, 0)] = pred_index;                  //여기도 접근 CPU에서 해도 상관이 없나....
+            // std::cout<<(*DecoderInput)[Index5D(InputShape, ti+1, 0, 0, 0, 0)]<<" ";
+        }
+
+    }
+
+    //test 완료후 reset
+    this->ResetResult();
+
+    //(*decoder_x_holder0[Index5D(DecoderInputShape, 0, 0, 0, 0, 0)])
+
+    // std::cout<<(*ExcutableOperator)[1]->GetNumOfExcutableOperator()<<'\n';
+
+    //std::cout<<"SentenceTranslate 완료"<<'\n';
+
+}
+
+
+//************************************************************************************seq 2 seq  때문에 추가*************************************************************************************************************************
 
 /*!
  * @brief CPU를 활용해 신경망을 테스트하는 메소드
@@ -871,7 +983,8 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::TrainOnGPU() {
 
 
 //cudnn 문제때문에 추가!   - 방법1 NeuralNetwork에서 처리하려는 시도!
-//이렇게 하면... 안됨...
+//이렇게 하면... 안됨...   왜 안된다고 한건지.. 기억은 안나는데...
+// 결국은 이걸 사용해서 결과 뽑은듯....
 template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTTOnGPU(int timesize) {
 #ifdef __CUDNN__
       this->ResetResult();

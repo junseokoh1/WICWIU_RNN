@@ -188,7 +188,7 @@ public:
 
         for (int ba = 0; ba < batchsize; ba++) {
 
-          if((*Lengths)[ba] <= ti)
+          if((*Lengths)[ba] <= ti)                                              //여기서 한번만 해도 처리가 될거 같은데!!! 한번 해보고 된다면 위에 if문 2개는 삭제하기!!!
               continue;
 
             start = (ti * batchsize + ba) * capacity;

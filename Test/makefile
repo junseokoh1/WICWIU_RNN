@@ -31,7 +31,9 @@ ifdef	ENABLE_CUDNN
 		WICWIU_src/Optimizer/AdagradOptimizer_CUDA.cu \
 		WICWIU_src/Optimizer/RMSPropOptimizer_CUDA.cu \
 		WICWIU_src/LossFunction/SoftmaxCrossEntropy_CUDA.cu \
+		WICWIU_src/LossFunction/SoftmaxCrossEntropy_padding_CUDA.cu \
 		WICWIU_src/Operator/Embedding_CUDA.cu
+
 
 	WICWIU_CUDA_OBJS = ${WICWIU_CUDA_SRCS:.cu=.o}
 endif
@@ -47,8 +49,8 @@ all: main
 #main: seqRecurrentTest.o $(WICWIU_LIB)
 #	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) seqRecurrentTest.o
 
-#main: padding_lossTest.o $(WICWIU_LIB)
-#	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) padding_lossTest.o
+main: padding_lossTest.o $(WICWIU_LIB)
+	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) padding_lossTest.o
 
 #main: HadamardProductTest.o $(WICWIU_LIB)
 #	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) HadamardProductTest.o
@@ -62,8 +64,8 @@ all: main
 #main: MatMulOperatorTest.o $(WICWIU_LIB)
 #	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) MatMulOperatorTest.o
 
-main: EmbeddingTest.o $(WICWIU_LIB)
-	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) EmbeddingTest.o
+#main: EmbeddingTest.o $(WICWIU_LIB)
+#	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) EmbeddingTest.o
 
 #main: SkipGramTest.o $(WICWIU_LIB)
 #	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) SkipGramTest.o

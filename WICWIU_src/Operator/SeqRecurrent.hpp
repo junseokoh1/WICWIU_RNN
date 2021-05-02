@@ -180,6 +180,12 @@ public:
         std::cout<<"hidColSize : "<<hidColSize<<'\n';
         std::cout<<"colsizeOfInput : "<<colsizeOfInput<<'\n';
 
+        //inithidden 값을 저장하고 있는 operator도  GPU로 올려야 될거 같음!
+        if(m_aInitHidden != NULL)
+         m_aInitHidden->SetDeviceGPU(this->GetCudnnHandle(), idOfDevice);          // --> 문제있으면 여기 하기!!!    ??? 왜 이걸 추가하면 segfault가 뜨는걸까...
+
+        std::cout<<"호출 완료"<<'\n';
+
         x_desc = new cudnnTensorDescriptor_t[hidTimeSize];
         dx_desc = new cudnnTensorDescriptor_t[hidTimeSize];
         y_desc = new cudnnTensorDescriptor_t[hidTimeSize];
@@ -347,8 +353,14 @@ public:
        checkCudaErrors(cudaMalloc((DTYPE**)&dy, output_length * sizeof(DTYPE)));
 
        //hx, cx와 같은 부분은 필요 없는 듯
-       //dw는 어떻게 하지?... -> 이거는 time마다 있는게 아니니깐 그냥 wicwiu방식으로 하면 될 듯?
+       //hx즉 inithidden값이 있을 때 설정해주기!!!
+       if(m_aInitHidden != NULL){
+          checkCudaErrors(cudaMalloc((DTYPE**)&hx, hidColSize * hidBatchSize * sizeof(DTYPE)));
+          checkCudaErrors(cudaMalloc((DTYPE**)&dhx, hidColSize * hidBatchSize * sizeof(DTYPE)));
+        }
 
+
+       //dw는 어떻게 하지?... -> 이거는 time마다 있는게 아니니깐 그냥 wicwiu방식으로 하면 될 듯?
        //weight도 해보자!
        checkCudaErrors(cudaMalloc((DTYPE**)&weights, weight_size));
        checkCudaErrors(cudaMalloc((DTYPE**)&gweights, weight_size));
@@ -516,7 +528,7 @@ public:
 #if __CUDNN__
     int ForwardPropagateOnGPU(int pTime = 0) {
 
-        // std::cout<<"RNN Forward GPU"<<pTime<<'\n';
+         // std::cout<<"RNN Forward GPU"<<pTime<<'\n';
 
         Tensor<DTYPE> *input    = this->GetInput()[0]->GetResult();
         Tensor<DTYPE> *weightHH = this->GetInput()[2]->GetResult();
@@ -529,8 +541,9 @@ public:
 
         int timeSize        = input->GetTimeSize();
 
-        if(this->GetMode() == 0 && pTime != timeSize-1)                   //여기 주석처리해도 문제는 안생김.... 다만 느려질 뿐...!
-          return TRUE;
+        //mode = 0 : train
+        // if(this->GetMode() == 0 && pTime != timeSize-1)                   //여기 주석처리해도 문제는 안생김.... 다만 느려질 뿐...!
+        //   return TRUE;
 
         //입력 잘 들어감!
         // std::cout<<"Forward"<<'\n';
@@ -541,8 +554,21 @@ public:
         //NULL해도 되는거 처리하기
         cx = NULL;
         cy = NULL;
-        hx = NULL;
+        // hx = NULL;
         hy = NULL;
+
+        //inithidden값이 있는 경우!!!
+        if(m_aInitHidden != NULL){
+
+          Tensor<DTYPE> *initHidden = m_aInitHidden->GetResult();
+          int m_Capacity = initHidden->GetCapacity();               //time = 0이니깐
+          DTYPE * wicwiuInitHidden = initHidden->GetGPUData(0);
+
+          checkCudaErrors(cudaMemcpy(&hx[0], wicwiuInitHidden, (m_Capacity * sizeof(DTYPE)), cudaMemcpyDeviceToDevice));         //여기서 error...
+        }
+        else{
+          hx = NULL;
+        }
 
         //입력은 복사
         int m_CapacityPerTime = input->GetCapacity() / timeSize;
@@ -596,7 +622,10 @@ public:
 
         int timeSize        = input->GetTimeSize();
 
-        if(pTime != 0)
+
+        //backward에서는... 음... gradient가 +=으로 저장되기 때문에 이걸 없애면 NAN값이 발생하는거 같음!
+
+        if(pTime != 0)                                                           //... 여기 embedding이랑 관련해서 문제 있을거 같은데....
           return TRUE;
 
       // std::cout<<"Backward"<<'\n';
@@ -613,8 +642,25 @@ public:
         dcy = NULL;
         cx = NULL;
         dcx = NULL;
-        hx = NULL;
-        dhx = NULL;
+        // hx = NULL;
+        // dhx = NULL;
+
+        //inithidden값이 있는 경우!!!
+        if(m_aInitHidden != NULL){
+
+          // std::cout<<"GPU Back initHidden 처리"<<'\n';
+
+          Tensor<DTYPE> *initHidden = m_aInitHidden->GetResult();
+          int m_Capacity = initHidden->GetCapacity();               //time = 0이니깐
+          DTYPE * wicwiuInitHidden = initHidden->GetGPUData(0);
+
+          checkCudaErrors(cudaMemcpy(&hx[0], wicwiuInitHidden, (m_Capacity * sizeof(DTYPE)), cudaMemcpyDeviceToDevice));
+        }
+        else
+        {
+            hx = NULL;
+            dhx = NULL;
+        }
 
         //y, dy 하나의 sequence로 만들어서 넣어주기!
 
@@ -666,7 +712,23 @@ public:
 
         }
 
-        /////////////////////////////////////////////////////
+        // //이걸 출력해본 결과....! 값이 변경되면 안되는데.... 값이 변경되고 있음!!!... 아주아주 조금씩 축적되는게 맞는거 같음!
+        // std::cout<<"값 축적인지 확인하기"<<'\n';
+        // std::cout<<input_delta->GetShape()<<'\n';
+        // std::cout<<input_delta<<'\n';
+
+        //inithidden값이 있는 경우 --> dhx값을 inithidden gradient에 넣어주기!
+        if(m_aInitHidden != NULL){
+
+          Tensor<DTYPE> *initHidden = m_aInitHidden->GetGradient();
+          int m_Capacity = initHidden->GetCapacity();               //time = 0이니깐
+          DTYPE * wicwiuInitHidden = initHidden->GetGPUData(0);
+
+          checkCudaErrors(cudaMemcpy(wicwiuInitHidden, &dhx[0], (m_Capacity * sizeof(DTYPE)), cudaMemcpyDeviceToDevice));
+        }
+
+
+        /////////////////////////////////////////////////////////////////////////////
 
         //x값 복사해주기!
         m_CapacityPerTime = input->GetCapacity() / timeSize;
@@ -712,7 +774,9 @@ public:
 
         //initHidden
         if(m_aInitHidden != NULL)
-           m_aInitHidden->GetResult();
+           m_aInitHidden->ResetResult();
+
+         return TRUE;
 
     }
 
@@ -730,6 +794,8 @@ public:
         //initHidden
         if(m_aInitHidden != NULL)
            m_aInitHidden->ResetGradient();
+
+         return TRUE;
 
     }
 

@@ -13,14 +13,14 @@
 
 using namespace std;
 
-#define EMBEDDIM               100            // 이걸 늘리면 segfault가 발생하는데... 이상하네....
+#define EMBEDDIM               350            // 이걸 늘리면 segfault가 발생하는데... 이상하네....
 // #define ENCODER_TIME           3
 // #define DECODER_TIME           4
-#define BATCH                  16
+#define BATCH                  64
 #define EPOCH                  10
-#define MAX_TRAIN_ITERATION    500   // (60000 / BATCH)
+#define MAX_TRAIN_ITERATION    1500   // (60000 / BATCH)
 #define MAX_TEST_ITERATION     5   // (10000 / BATCH)
-#define GPUID                  2
+#define GPUID                  6
 
 
 
@@ -35,7 +35,7 @@ int main(int argc, char const *argv[]) {
     double  nProcessExcuteTime = 0;
 
     //RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/eng-fra_short.txt", "eng", "fra");      //input 2개는 확인해 봤지만 label은 확인하지 못함!
-    RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/test2.txt", "eng", "fra");
+    RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/test3.txt", "eng", "fra");
     //RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/test2.txt", "eng", "fra");
     //RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/padding_test.txt", "eng", "fra");
     translation_data->BuildVocab();
@@ -60,14 +60,20 @@ int main(int argc, char const *argv[]) {
     NeuralNetwork<float> *net = new my_SeqToSeq(encoder_x_holder, decoder_x_holder, label_holder, vocab_size, EMBEDDIM, encoder_lengths_holder, decoder_lengths_holder);
     //NeuralNetwork<float> *net = new my_AttentionSeqToSeq(encoder_x_holder, decoder_x_holder, label_holder, encoder_lengths_holder, decoder_lengths_holder, vocab_size, EMBEDDIM);
 
+#ifdef __CUDNN__
+    std::cout<<"GPU환경에서 실행중 입니다."<<'\n';
+    net->SetDeviceGPU(GPUID);
+#endif  // __CUDNN__
+
 
     std::cout<<'\n';
     net->PrintGraphInformation();
 
-    map<int, string> *index2vocab = translation_data->GetpIndex2Vocab();
-    for ( int i=0; i< translation_data->GetNumberofVocabs(); i++ ){
-        std::cout<<i<<" : "<<index2vocab->at(i)<<'\n';
-    }
+    //단어 전처리 부분 확인하는 코드!
+     map<int, string> *index2vocab = translation_data->GetpIndex2Vocab();
+    // for ( int i=0; i< translation_data->GetNumberofVocabs(); i++ ){
+    //     std::cout<<i<<" : "<<index2vocab->at(i)<<'\n';
+    // }
 
     float best_acc = 0;
     int   epoch    = 0;
@@ -103,6 +109,14 @@ int main(int argc, char const *argv[]) {
             Tensor<float> *d_l = (*temp)[4];
             delete temp;
 
+#ifdef __CUDNN__
+            e_t->SetDeviceGPU(GPUID);
+            d_t->SetDeviceGPU(GPUID);
+            l_t->SetDeviceGPU(GPUID);
+            e_l->SetDeviceGPU(GPUID);
+            d_l->SetDeviceGPU(GPUID);
+#endif  // __CUDNN__
+
             // std::cout<<"encoder input"<<'\n';
             // std::cout<<'\n'<<e_t->GetShape()<<'\n'<<e_t<<'\n';
             //
@@ -128,7 +142,11 @@ int main(int argc, char const *argv[]) {
             net->ResetParameterGradient();
             //net->BPTT(Text_length);
             //net->BPTT(DecoderTime);
+        #ifdef __CUDNN__
+            net->seq2seqBPTTOnGPU(EncoderTime, DecoderTime);         //GPU함수가 있는가!
+        #else
             net->seq2seqBPTT(EncoderTime, DecoderTime);
+        #endif
 
             //batch로 했을 경우
             //net->BPTT(time_size);
@@ -173,7 +191,17 @@ int main(int argc, char const *argv[]) {
             //data중에서 test!
             std::vector<Tensor<float> *> * temp =  train_dataloader->GetDataFromGlobalBuffer();
             Tensor<float> *e_t = (*temp)[0];
+            Tensor<float> *d_t = (*temp)[1];
+            Tensor<float> *l_t = (*temp)[2];
+            Tensor<float> *e_l = (*temp)[3];
+            // Tensor<float> *d_l = (*temp)[4];
             delete temp;
+
+#ifdef __CUDNN__
+            e_t->SetDeviceGPU(GPUID);
+            e_l->SetDeviceGPU(GPUID);
+            d_t->SetDeviceGPU(GPUID);
+#endif  // __CUDNN__
 
             //std::cout<<e_t<<'\n';
 
@@ -185,11 +213,15 @@ int main(int argc, char const *argv[]) {
             std::cout<<'\n';
 
             // //e_t = translation_data->GetTestData("We're not desperate yet.");
-            net->FeedInputTensor(1, e_t);      //아니면 함수의 인자로 넘겨주던가....
+            net->FeedInputTensor(4, e_t, d_t, l_t, e_l);      //아니면 함수의 인자로 넘겨주던가....
             //
 
             map<int, string>* index2vocab = translation_data->GetpIndex2Vocab();
+        #ifdef __CUDNN__
+            net->SentenceTranslateOnGPU(index2vocab);
+        #else
             net->SentenceTranslate(index2vocab);
+        #endif
 
               std::cout << "\n\n";
         }
