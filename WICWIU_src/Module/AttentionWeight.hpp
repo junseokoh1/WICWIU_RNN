@@ -60,6 +60,7 @@ private:
 public:
   DotAttentionWeight(Operator<DTYPE> *pKey, Operator<DTYPE> *pQuery, Operator<DTYPE> *pMask, std::string pName = "NO NAME");
   int       Alloc(Operator<DTYPE> *pKey, Operator<DTYPE> *pQuery, Operator<DTYPE> *pMask, std::string pName);
+  virtual int SetQuery(Operator<DTYPE> *pQuery);
 };
 
 
@@ -80,19 +81,29 @@ template<typename DTYPE> int DotAttentionWeight<DTYPE>::Alloc(Operator<DTYPE> *p
 
     Operator<DTYPE> *out = NULL;
 
-    out = new DotSimilarity<DTYPE>(pKey, pQuery, "similarity");
+    out = new DotSimilarity<DTYPE>(pKey, pQuery, pName+"_similarity");
 
     if(pMask) {
       out = new MaskedFill<DTYPE>(out, pMask, pName+"_pMask");
     }
 
-    out = new Softmax<DTYPE>(out, "attention_weight");
+    out = new Softmax<DTYPE>(out, pName+"_attention_weight");
 
     this->AnalyzeGraph(out);
 
     return TRUE;
 }
 
+template<typename DTYPE> int DotAttentionWeight<DTYPE>::SetQuery(Operator<DTYPE> * pQuery){
+
+    std::cout<<"DotAttentionWeight SetQuery"<<'\n';
+
+    // int numOfExcutableOperator = this->GetNumOfExcutableOperator();
+    Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
+    (*ExcutableOperator)[0]->SetQuery(pQuery);
+
+
+}
 
 
 /*

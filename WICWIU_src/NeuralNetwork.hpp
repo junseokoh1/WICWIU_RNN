@@ -71,7 +71,7 @@ public:
     int                  GenerateSentence(int maxTimeSize, char* vocab, int startIndex, int vocabSize);
     int                  GenerateSentence(int maxTimeSize, std::string* vocab, int startIndex, int numOfClass);
     int                  GenerateSentence(int maxTimeSize, std::map<int, std::string>* Index2Vocab, int startIndex, int vocabSize);               //textdataset 통합하면서 수정!
-    int                  SentenceTranslate(std::map<int, std::string>* index2vocab);
+    virtual int          SentenceTranslate(std::map<int, std::string>* index2vocab);
     int                  SentenceTranslateOnGPU(std::map<int, std::string>* index2vocab);
 
 
@@ -101,8 +101,8 @@ public:
     int                  BPTT_Test(int timesize);
     int                  BPTT_TestOnCPU(int timesize);
     int                  BPTT_TestOnGPU(int timesize);
-    int                  seq2seqBPTT(int EncTimeSize, int DecTimeSize);
-    int                  seq2seqBPTTOnGPU(int EncTimeSize, int DecTimeSize);
+    virtual int          seq2seqBPTT(int EncTimeSize, int DecTimeSize);
+    virtual int          seq2seqBPTTOnGPU(int EncTimeSize, int DecTimeSize);
 
 
 #ifdef __CUDNN__
@@ -184,10 +184,9 @@ template<typename DTYPE> void NeuralNetwork<DTYPE>::DeleteOnGPU() {
  * @see NeuralNetwork<DTYPE>::Alloc()
  */
 template<typename DTYPE> NeuralNetwork<DTYPE>::NeuralNetwork() : Module<DTYPE>() {
-//    #ifdef __DEBUG__
+   #ifdef __DEBUG__
     std::cout << "NeuralNetwork<DTYPE>::NeuralNetwork()" << '\n';
-//    #endif  // __DEBUG__
-std::cout<<this<<'\n';
+   #endif  // __DEBUG__
 
     m_aLossFunction = NULL;
     m_aOptimizer    = NULL;
@@ -642,6 +641,8 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::BPTTOnCPU(int timesize) {
 }
 */
 
+
+//이게 원래 사용하던 seq2seqBPTT임!!!!!!!!!!! 중요 이거임!!! 이거이거!!! 이거 주석처리 빼라!!!
 template<typename DTYPE> int NeuralNetwork<DTYPE>::seq2seqBPTT(int EncTimeSize, int DecTimeSize) {
 
     this->ResetResult();
@@ -676,6 +677,56 @@ template<typename DTYPE> int NeuralNetwork<DTYPE>::seq2seqBPTT(int EncTimeSize, 
 
     return TRUE;
 }
+
+//attention을 추가한거는 module의 개수가 3개여서.....
+//그래서 0, 1로 접근하면 encoder, decoder가 안됨
+// 0 - mask 생성
+// 1 - encoder
+// 2 - decoder
+/*
+template<typename DTYPE> int NeuralNetwork<DTYPE>::seq2seqBPTT(int EncTimeSize, int DecTimeSize) {
+
+    this->ResetResult();
+    this->ResetGradient();
+    this->ResetLossFunctionResult();
+    this->ResetLossFunctionGradient();
+
+    Container<Operator<DTYPE> *> *ExcutableOperator = this->GetExcutableOperatorContainer();
+
+    //maks forward
+    (*ExcutableOperator)[0]->ForwardPropagate(0);
+
+    //encoder forward
+    for(int i =0; i<EncTimeSize; i++)
+        (*ExcutableOperator)[1]->ForwardPropagate(i);
+
+    // std::cout<<"seq2seqBPTT Encoder forward 완료"<<'\n';
+
+    //Decoder & lossfunction forward
+    for(int i=0; i<DecTimeSize; i++){
+      // std::cout<<"-------------"<<i<<"----------------";
+      (*ExcutableOperator)[2]->ForwardPropagate(i);
+      m_aLossFunction->ForwardPropagate(i);
+    }
+
+    // std::cout<<"seq2seqBPTT forward 완료"<<'\n';
+
+    //Decoder & loss function backward
+    for(int j=DecTimeSize-1; j>=0; j--){
+      m_aLossFunction->BackPropagate(j);
+      (*ExcutableOperator)[2]->BackPropagate(j);
+    }
+
+    //Encoder backward
+    for(int j=EncTimeSize-1; j>=0; j--){
+      (*ExcutableOperator)[1]->BackPropagate(j);
+    }
+
+    m_aOptimizer->UpdateParameter();
+
+    return TRUE;
+}
+*/
 
 template<typename DTYPE> int NeuralNetwork<DTYPE>::seq2seqBPTTOnGPU(int EncTimeSize, int DecTimeSize) {
 #ifdef __CUDNN__

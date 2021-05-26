@@ -1,7 +1,7 @@
 .SUFFIXES = .cpp .o
 
 CFLAGS = -O2 -std=c++11
-ENABLE_CUDNN = -D__CUDNN__
+#ENABLE_CUDNN = -D__CUDNN__
 #DFLAGS = -g -D__DEBUG___
 #DFLAGS = -D__RNNDBUG__
 
@@ -49,8 +49,8 @@ all: main
 #main: seqRecurrentTest.o $(WICWIU_LIB)
 #	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) seqRecurrentTest.o
 
-main: padding_lossTest.o $(WICWIU_LIB)
-	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) padding_lossTest.o
+#main: padding_lossTest.o $(WICWIU_LIB)
+#	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) padding_lossTest.o
 
 #main: HadamardProductTest.o $(WICWIU_LIB)
 #	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) HadamardProductTest.o
@@ -78,6 +78,9 @@ main: padding_lossTest.o $(WICWIU_LIB)
 
 #main: DotSimilarity.o $(WICWIU_LIB)
 #	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) DotSimilarity.o
+
+main: FlipTest.o $(WICWIU_LIB)
+	$(NVCC) $(CFLAGS) $(ENABLE_CUDNN) $(DFLAGS) $(LFLAGS) $(INCLUDE_PATH) $(LIB_PATH) -o $@ $(WICWIU_LIB) FlipTest.o
 
 $(WICWIU_LIB): $(WICWIU_SRC)
 	make -C ../..

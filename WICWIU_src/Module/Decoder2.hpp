@@ -64,9 +64,9 @@ public:
         //     out = new AddColWise<DTYPE>(out, pBias, "Layer_Add_" + pName);
         // }
 
-          // out = new RecurrentLayer<DTYPE>(out, embeddingDim, hiddensize, outputsize, m_initHiddenTensorholder, use_bias, "Recur_1");
+           out = new RecurrentLayer<DTYPE>(out, embeddingDim, hiddensize, outputsize, m_initHiddenTensorholder, use_bias, "Recur_1");
           // out = new LSTM2Layer<float>(out, embeddingDim, hiddensize, m_initHiddenTensorholder, TRUE, "Recur_1");
-          out = new GRULayer<float>(out, embeddingDim, hiddensize, m_initHiddenTensorholder, TRUE, "Recur_1");
+          // out = new GRULayer<float>(out, embeddingDim, hiddensize, m_initHiddenTensorholder, TRUE, "Recur_1");
 
 
         //이제 h2o을 밖으로!

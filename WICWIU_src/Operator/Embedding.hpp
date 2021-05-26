@@ -10,9 +10,9 @@ private:
 public:
 
     Embedding(Operator<DTYPE> *pWeight, Operator<DTYPE> *pInput, std::string pName, int pLoadflag = TRUE) : Operator<DTYPE>(pWeight, pInput, pName, pLoadflag) {
-//        #ifdef __DEBUG__
+       #ifdef __DEBUG__
         std::cout << "Embedding::Embedding(Operator<DTYPE> *, Operator<DTYPE> *, std::string)" << '\n';
-//        #endif  // __DEBUG__
+       #endif  // __DEBUG__
         this->Alloc(pWeight, pInput);
     }
 
@@ -81,7 +81,7 @@ public:
         for (int ba = 0; ba < batchsize; ba++) {
               for (int ch = 0; ch < channelsize; ch++) {
                     for (int ro = 0; ro < numOfWord; ro++) {
-                        wordIndex = ((*input)[Index5D(inputTenShape, ti, ba, ch, 0, ro)]);                //1이아니라 0부터 시작해야지!!!
+                        wordIndex = ((*input)[Index5D(inputTenShape, ti, ba, ch, 0, ro)]);                //1이아니라 0부터 시작해야지!!!        //attention 여기서 segmentaiton fault...
                         if(wordIndex==-1)
                             std::cout<<"오류---------------------------입력값에 -1 존재!!!"<<'\n';
                         // std::cout<<"wordIndex : "<<wordIndex<<'\n';

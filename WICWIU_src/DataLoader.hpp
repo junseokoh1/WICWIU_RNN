@@ -391,7 +391,7 @@ template<typename DTYPE> Tensor<DTYPE> *DataLoader<DTYPE>::Concatenate(std::queu
     temp     = setOfData.front();
     capacity = temp->GetCapacity();
     timesize = temp->GetTimeSize();
-    int colsize = capacity/timesize;
+    int colsize = capacity/timesize;          //timesize가 결국은 1 이여서 문제가 없을거 같음....
     //result   = Tensor<DTYPE>::Zeros(1, m_batchSize, 1, 1, capacity);
     result   = Tensor<DTYPE>::Zeros(timesize, m_batchSize, 1, 1, colsize);
 

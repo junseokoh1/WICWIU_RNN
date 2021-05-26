@@ -127,7 +127,7 @@ template<typename DTYPE> int MaskedFill<DTYPE>::BackPropagate(int pTime) {
         for (int ch = 0; ch < channelsize; ch++) {
             for (int ro = 0; ro < rowsize; ro++) {
                 for (int co = 0; co < colsize; co++) {
-                    if((*mask)[Index5D(maskTenShape, 0, ba, 1, ro, co)]) {                  //여기도 ti을 0으로 수정해줌!
+                    if((*mask)[Index5D(maskTenShape, 0, ba, 0, ro, co)]) {                  //여기도 ti을 0으로 수정해줌!   ch에 1 -> 0으로 수정...
                       int index = Index5D(pThisDeltaTenShape, ti, ba ,ch, ro ,co);
                       (*input_delta)[index] = (*this_delta)[index] * -1e9;
                     }

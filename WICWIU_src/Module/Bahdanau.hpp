@@ -1,10 +1,12 @@
-#ifndef __ATTENTIONDECODERMODULE__
-#define __ATTENTIONDECODERMODULE__    value
+#ifndef __BAHDANAUDECODER__
+#define __BAHDANAUDECODER__    value
 
 #include "../Module.hpp"
 
-//Luong attention을 구현한거!!!
-template<typename DTYPE> class AttentionDecoder_Module : public Module<DTYPE>{
+
+//그래프상에서 해결해서.... 구할려고 한 구조.... 단 포기함....
+
+template<typename DTYPE> class Bahdanau : public Module<DTYPE>{
 private:
 
     int timesize;     //결국 이게 MaxTimeSize랑 동일한거지!
@@ -17,12 +19,12 @@ private:
 
 public:
 
-    AttentionDecoder_Module(Operator<DTYPE> *pInput, Operator<DTYPE> *pEncoder, Operator<DTYPE> *pMask, int vocabLength, int embeddingDim, int hiddensize, int outputsize, Operator<DTYPE> *pEncoderLengths = NULL, int use_bias = TRUE, std::string pName = "No Name") : Module<DTYPE>(pName) {
+    Bahdanau(Operator<DTYPE> *pInput, Operator<DTYPE> *pEncoder, Operator<DTYPE> *pMask, int vocabLength, int embeddingDim, int hiddensize, int outputsize, Operator<DTYPE> *pEncoderLengths = NULL, int use_bias = TRUE, std::string pName = "No Name") : Module<DTYPE>(pName) {
         Alloc(pInput, pEncoder, pMask, pEncoderLengths, vocabLength, embeddingDim, hiddensize, outputsize, use_bias, pName);
     }
 
 
-    virtual ~AttentionDecoder_Module() {}
+    virtual ~Bahdanau() {}
 
 
     int Alloc(Operator<DTYPE> *pInput, Operator<DTYPE> *pEncoder, Operator<DTYPE> *pMask, Operator<DTYPE> *pEncoderLengths, int vocabLength, int embeddingDim, int hiddensize, int outputsize, int use_bias, std::string pName) {
@@ -39,36 +41,43 @@ public:
 
         //pEncoder        ????
 
+        Operator<DTYPE> *tempGraph = new Tensorholder<DTYPE>(Tensor<DTYPE>::Zeros(1, 1, 1, 1, 1), "forGraph");
 
         //Embedding
-        out = new EmbeddingLayer<float>(out, vocabLength, embeddingDim, "Embedding");
+        Operator<DTYPE> *embedding = new EmbeddingLayer<float>(out, vocabLength, embeddingDim, pName+"_Embedding");
 
-        //중요!!!!!!!!!!!!! 여기서 hidden, contextvector, concatenate하는 부분 그래프에서 문제 없나 확인해보기!!! 꼭!!! 문제 생길 수 도 있는 부분인듯!!!
+        //입력과 Contextvector를 합쳐주기!...
+        Operator<DTYPE> *concate = new ConcatenateColumnWise<DTYPE>(embedding,tempGraph, pName+"_concatenate");
 
-        // Operator<DTYPE> *hidden = new RecurrentLayer<DTYPE>(out, embeddingDim, hiddensize, outputsize, m_initHiddenTensorholder, use_bias, "Recur_1");
-        // Operator<DTYPE> *hidden = new LSTM2Layer<float>(out, embeddingDim, hiddensize, m_initHiddenTensorholder, TRUE, "LSTM_1");
-        Operator<DTYPE> *hidden = new GRULayer<float>(out, embeddingDim, hiddensize, m_initHiddenTensorholder, TRUE, "GRU_1");
+        Operator<DTYPE> *hidden = new RecurrentLayer<DTYPE>(concate, embeddingDim+hiddensize, hiddensize, outputsize, m_initHiddenTensorholder, use_bias, pName+"_RNN");
 
-
-        //key query value
-        Operator<DTYPE> *ContextVector = new AttentionModule<DTYPE>(pEncoder, hidden, pEncoder, pMask, "attention");
-
-        out = new ConcatenateColumnWise<DTYPE>(hidden,ContextVector, "concatenate");
-
-        //contextvector는 hidden vector와 size가 동일할 수 밖에 없음!
-        out = new Linear<DTYPE>(out, hiddensize*2, hiddensize, TRUE, "Fully-Connected-H2HBar");
-        // out = new Linear<DTYPE>(out, hiddensize*2, outputsize, TRUE, "Fully-Connected-H2HBar");
+        //다음 time에 사용할 context vector 미리 만들어 두기...?
+        //T time의 forward일 때 T time의 decoder hidden을 사용해서 T+1 time의 contextvector를 만들어서 저장해두기
+        //그러면 T+1 time일 때 그냥 접근해서 사용가능....
+        Operator<DTYPE> *ContextVector = new AttentionModule<DTYPE>(pEncoder, hidden, pEncoder, pMask, pName+"_AttentionModule");
 
 
+        //linear
+        out = new Linear<DTYPE>(hidden, hiddensize, outputsize, TRUE, pName+"_Fully-Connected-H2O");
 
-        //tanh
-        out  = new Tanh<DTYPE>(out, "rnn_tanh");
+        Container<Operator<DTYPE> *> *test = hidden->GetOutputContainer();
+        int numOfOutputEdge                  = test->GetSize();
+
+        // std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@"<<numOfOutputEdge<<'\n';
+        // std::cout<<(*test)[0]->GetName()<<'\n';
+        // std::cout<<(*test)[1]->GetName()<<'\n';
+        // std::cout<<"@@@@@@@@@@@@@@@@@@@@"<<'\n';
+
+        //연결 제대로 해주기!
+        concate->GetInputContainer()->Pop(tempGraph);
+        concate->GetInputContainer()->Push(ContextVector);
+
+        // ContextVector->GetInputContainer()->Pop(hidden);
+        // ContextVector->GetInputContainer()->Pop(concate);
         //
-        // //linear 한번 더
-        // //사이즈 적어둔게 하나도 없음....
-        out = new Linear<DTYPE>(out, hiddensize, outputsize, TRUE, "Fully-Connected-HBar2O");
-
-
+        // hidden->GetOutputContainer()->Pop(ContextVector);
+        //
+        // concate->GetOutputContainer()->Pop(hidden);
 
         this->AnalyzeGraph(out);
 
@@ -130,7 +139,7 @@ public:
         // }
 
         //decoder output 확인하기!
-        //std::cout<<"AttentionDecoder_Module Forward 결과"<<'\n';
+        //std::cout<<"Bahdanau Forward 결과"<<'\n';
         // std::cout<<this->GetResult()->GetShape()<<'\n';
         // std::cout<<this->GetResult()<<'\n';
 

@@ -69,6 +69,9 @@ public:
     //gethidden을 위해 추가    2021/04/06
     Tensor<DTYPE>                     * GetHidden(Operator<DTYPE>* padding = NULL);
 
+    //bahdanau attention을 위해 추가 2021/5/26
+    virtual int                         SetQuery(Operator<DTYPE>* pQuery);
+
     virtual int                         SetIsTensorholder(int pIsParameter);
     virtual int                         SetIsTrainable(int pIsTrainable);
 
@@ -172,9 +175,9 @@ template<typename DTYPE> void Module<DTYPE>::Delete() {
  * @return 없음
  */
 template<typename DTYPE> Module<DTYPE>::Module(std::string pName) : Operator<DTYPE>(pName) {
-//    #ifdef __DEBUG__
+   #ifdef __DEBUG__
     std::cout << "Module<DTYPE>::Module()" << '\n';
-//    #endif  // __DEBUG__
+   #endif  // __DEBUG__
     m_aaExcutableOperator    = NULL;
     m_numOfExcutableOperator = 0;
     m_pLastOperator          = NULL;
@@ -275,19 +278,23 @@ template<typename DTYPE> int Module<DTYPE>::IsInput(Operator<DTYPE> *pOperator) 
 template<typename DTYPE> int Module<DTYPE>::IsValid(Operator<DTYPE> *pOperator) {
     Container<Operator<DTYPE> *> *prevOp = pOperator->GetOutputContainer();
     int numOfOutputEdge                  = prevOp->GetSize();
-    #if __RNNDEBUG__
+    // #if __RNNDEBUG__
+    if(pOperator->GetName() == "Decoder_RNN"){
     std::cout<<"IsValid에서 output연결된 수 : "<<numOfOutputEdge<<'\n';
     std::cout<<"IsValid에서  : "<<m_numOfExcutableOperator<<'\n';
-    #endif
+    }
+    // #endif
     int check                            = 0;
 
     // every Output node is already in Excutable Operator
     for (int i = 0; i < numOfOutputEdge; i++) {
         for (int j = 0; j < m_numOfExcutableOperator; j++) {
-            #if __RNNDEBUG__
-            std::cout<<(*prevOp)[i]<<'\n';
-            std::cout<<"ExcutableOperator에 있는거 : "<<(*m_aaExcutableOperator)[j]<<'\n';
-            #endif
+            // #if __RNNDEBUG__
+            if(pOperator->GetName() == "Decoder_RNN"){
+            std::cout<<(*prevOp)[i]->GetName()<<'\n';
+            std::cout<<"ExcutableOperator에 있는거 : "<<(*m_aaExcutableOperator)[j]->GetName()<<'\n';
+            }
+            // #endif
             if ((*m_aaExcutableOperator)[j] == (*prevOp)[i]) {
                 check++;
                 break;
@@ -324,37 +331,46 @@ template<typename DTYPE> Operator<DTYPE> *Module<DTYPE>::AnalyzeGraph(Operator<D
 
     int test=0;     //내가 찍어볼려고 만든거
 
-    //std::cout<<"현재 analyzeGraph 호출 주인 : "<<this<<'\n';
+    // std::cout<<'\n';
+    // std::cout<<"---------------------현재 analyzeGraph 호출 주인 : "<<this->GetName()<<"---------------------"<<'\n';
 
     while (queue.GetSize() > 0) {
         out = queue.Pop();
+
         #if __RNNDEBUG__
-        std::cout<<"while반복:"<<test<<"  "<<out->GetName()<<'\n';
+            std::cout<<"while반복:"<<test<<"  "<<out->GetName()<<'\n';
+            test++; //if(test>13) exit(0);
+            if(out->GetName() == "Decoder_RNN"){
+                std::cout<<this->IsValid(out)<<'\n';
+            }
         #endif
 
         if (!(this->IsInput(out))) {                              //이거나   // IsInput이 False이여야됨
             if (this->IsValid(out)) {                             //이거 둘 중에 한 조건을 만족하지 못하고 있음 continue로 빠져서 test 값이 증가안함  //IsValid는 true
-                //std::cout << out->GetName() << '\n';
+                // std::cout <<"----"<< out->GetName() << '\n';
 
                 if (out->GetIsTensorholder()) {
                     this->SetParameter(out);
+                    // std::cout<<" SetParameter - "<<out->GetName()<<'\n';
                 } else {
                     this->SetExecutableOperater(out);
+                    // std::cout<<" SetExecutableOperater - "<<out->GetName()<<'\n';
                 }
 
                 nextOp         = out->GetInputContainer();
-                numOfInputEdge = nextOp->GetSize();
-                //std::cout<<"numOfInputEdge : "<<numOfInputEdge<<'\n';
+                numOfInputEdge = nextOp->GetSize();                             //이거는 container에 있는거... container 안에 몇개가 있나...!
+                // std::cout<<"  numOfInputEdge : "<<numOfInputEdge<<'\n';
 
                 for (int i = 0; i < numOfInputEdge; i++) {
-                    prevOp = (*nextOp)[i]->GetOutputContainer();
+                    prevOp = (*nextOp)[i]->GetOutputContainer();                //  Operator에 있는거...!   Container<Operator<DTYPE> *> *m_apOutput;
                     prevOp->Pop(out);
 
                     queue.Push((*nextOp)[i]);
+
+                    // std::cout<<"    추가 - "<<(*nextOp)[i]->GetName()<<'\n';
                 }
             } else continue;
         } else continue;
-        test++;
     }
     // std::cout << '\n';
 
@@ -432,6 +448,12 @@ template<typename DTYPE> Container<Operator<DTYPE> *> *Module<DTYPE>::GetParamet
 template<typename DTYPE> Tensor<DTYPE> *Module<DTYPE>::GetHidden(Operator<DTYPE>* padding) {
     return m_pLastOperator->GetHidden(padding);
     // return this->GetInputContainer();
+}
+
+
+template<typename DTYPE> int Module<DTYPE>::SetQuery(Operator<DTYPE>* mQuery) {
+
+    std::cout<<"Module::SetQuery"<<'\n';
 }
 
 template<typename DTYPE> int Module<DTYPE>::SetIsTensorholder(int pIsParameter) {

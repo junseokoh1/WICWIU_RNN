@@ -139,13 +139,14 @@ public:
     int Alloc(Operator<DTYPE> *pKey, Operator<DTYPE> *pQuery, Operator<DTYPE> *pValue, Operator<DTYPE> *pMask,  std::string pName) {
 
 
-        out = DotAttentionWeight(pKey, pQuery, pMask);
+        AttentionWeight = DotAttentionWeight(pKey, pQuery, pMask);
 
         //context vector를 구해주는 연산!
-        new operator2(out, pValue);
+        // new operator2(out, pValue);                                  //5월 22일 주석처리!
+        ContextVector = new AttentionByModule<DTYPE>(AttentionWeight, pValue, pName);         //5월 22일
 
 
-        this->AnalyzeGraph(out);
+        this->AnalyzeGraph(ContextVector);
 
         return TRUE;
     }
@@ -185,6 +186,7 @@ template<typename DTYPE> int DotAttentionWeight<DTYPE>::Alloc(Operator<DTYPE> *p
   out = new DotSimilarity(pKey, pQuery, "similarity")
 
   // #3. pMask
+  //mask 방식말고... seq2seq에서 사용했던 방식으로도 가능하기는 함...
   if(pMask) {
     out = new MaskedFill<DTYPE>(out, pMask, pName+"_pMask");
   }

@@ -28,12 +28,12 @@ public:
 
         //embedding 추가???
         //out = new Embedding<DTYPE>(pWeight_in, out, "embedding");
-        out = new EmbeddingLayer<DTYPE>(out, vocablength, embeddingDim, "Embedding");
+        out = new EmbeddingLayer<DTYPE>(out, vocablength, embeddingDim, pName+"_Embedding");
 
 
-        // out = new RecurrentLayer<DTYPE>(out, embeddingDim, hiddensize, 10, NULL, use_bias, "Recur_1");
+        out = new RecurrentLayer<DTYPE>(out, embeddingDim, hiddensize, 10, NULL, use_bias, pName+"_RNN");
         // out = new LSTM2Layer<float>(out, embeddingDim, hiddensize, NULL, TRUE, "Recur_1");
-        out = new GRULayer<float>(out, embeddingDim, hiddensize, NULL, TRUE, "Recur_1");
+        // out = new GRULayer<float>(out, embeddingDim, hiddensize, NULL, TRUE, "Recur_1");
 
 
 

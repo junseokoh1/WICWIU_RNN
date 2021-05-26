@@ -464,8 +464,6 @@ template<typename DTYPE> Operator<DTYPE>::Operator(int numInput, ...) {
     m_idOfDevice  = -1;
     Alloc();
 
-    std::cout<<"Operator 생성자! 숫자로 받는거 호출!"<<'\n';
-
     va_list ap;
     va_start(ap, numInput);
     AddEdgebetweenOperators(numInput, ap);
@@ -909,6 +907,7 @@ template<typename DTYPE> int Operator<DTYPE>::SetQuery(Operator<DTYPE> *pQuery) 
     #ifdef __DEBUG__
 
     #endif  // __DEBUG__
+    std::cout<<"Operator::SetQuery"<<'\n';
     return TRUE;
 }
 

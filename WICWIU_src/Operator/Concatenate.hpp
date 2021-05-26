@@ -155,6 +155,7 @@ public:
 
 
 //이것도 결과 확인!
+//attetnion 때문에 추가
 template<typename DTYPE>
 class ConcatenateColumnWise : public Operator<DTYPE>{
 private:

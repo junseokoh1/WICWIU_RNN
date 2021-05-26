@@ -4,6 +4,9 @@
 #include "../Operator.hpp"
 #include <cstdio>
 
+
+// 이게 아마도 matmul은 weihgt에서 batch index가 안움직여서 만들었던거 같아!
+
 template<typename DTYPE> class DotProduct : public Operator<DTYPE>{
 
 public:

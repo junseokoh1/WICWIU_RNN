@@ -1,10 +1,12 @@
-#ifndef __ATTENTIONDECODERMODULE__
-#define __ATTENTIONDECODERMODULE__    value
+#ifndef __BAHDANAUDECODER2__
+#define __BAHDANAUDECODER2__    value
 
 #include "../Module.hpp"
 
-//Luong attention을 구현한거!!!
-template<typename DTYPE> class AttentionDecoder_Module : public Module<DTYPE>{
+
+//그래프상에서 해결하고자 함!
+
+template<typename DTYPE> class Bahdanau2 : public Module<DTYPE>{
 private:
 
     int timesize;     //결국 이게 MaxTimeSize랑 동일한거지!
@@ -15,14 +17,16 @@ private:
 
     Operator<DTYPE> *m_EncoderLengths;
 
+    Operator<DTYPE> *m_Query;
+
 public:
 
-    AttentionDecoder_Module(Operator<DTYPE> *pInput, Operator<DTYPE> *pEncoder, Operator<DTYPE> *pMask, int vocabLength, int embeddingDim, int hiddensize, int outputsize, Operator<DTYPE> *pEncoderLengths = NULL, int use_bias = TRUE, std::string pName = "No Name") : Module<DTYPE>(pName) {
+    Bahdanau2(Operator<DTYPE> *pInput, Operator<DTYPE> *pEncoder, Operator<DTYPE> *pMask, int vocabLength, int embeddingDim, int hiddensize, int outputsize, Operator<DTYPE> *pEncoderLengths = NULL, int use_bias = TRUE, std::string pName = "No Name") : Module<DTYPE>(pName) {
         Alloc(pInput, pEncoder, pMask, pEncoderLengths, vocabLength, embeddingDim, hiddensize, outputsize, use_bias, pName);
     }
 
 
-    virtual ~AttentionDecoder_Module() {}
+    virtual ~Bahdanau2() {}
 
 
     int Alloc(Operator<DTYPE> *pInput, Operator<DTYPE> *pEncoder, Operator<DTYPE> *pMask, Operator<DTYPE> *pEncoderLengths, int vocabLength, int embeddingDim, int hiddensize, int outputsize, int use_bias, std::string pName) {
@@ -35,52 +39,57 @@ public:
 
         m_EncoderLengths = pEncoderLengths;
 
-        Operator<DTYPE> *out = pInput;
+        //중요! 핵심부분 추가!!!
+        m_Query = new Tensorholder<DTYPE>(Tensor<DTYPE>::Zeros(timesize, batchsize, 1, 1, hiddensize), "m_Query");
 
-        //pEncoder        ????
+        Operator<DTYPE> *out = pInput;
 
 
         //Embedding
-        out = new EmbeddingLayer<float>(out, vocabLength, embeddingDim, "Embedding");
+        Operator<DTYPE> *embedding = new EmbeddingLayer<float>(out, vocabLength, embeddingDim, pName+"_Embedding");
 
-        //중요!!!!!!!!!!!!! 여기서 hidden, contextvector, concatenate하는 부분 그래프에서 문제 없나 확인해보기!!! 꼭!!! 문제 생길 수 도 있는 부분인듯!!!
+        Operator<DTYPE> *ContextVector = new AttentionModule<DTYPE>(pEncoder, m_Query, pEncoder, pMask, pName+"_AttentionModule");
 
-        // Operator<DTYPE> *hidden = new RecurrentLayer<DTYPE>(out, embeddingDim, hiddensize, outputsize, m_initHiddenTensorholder, use_bias, "Recur_1");
-        // Operator<DTYPE> *hidden = new LSTM2Layer<float>(out, embeddingDim, hiddensize, m_initHiddenTensorholder, TRUE, "LSTM_1");
-        Operator<DTYPE> *hidden = new GRULayer<float>(out, embeddingDim, hiddensize, m_initHiddenTensorholder, TRUE, "GRU_1");
+        Operator<DTYPE> *concate = new ConcatenateColumnWise<DTYPE>(embedding,ContextVector, pName+"_concatenate");
 
-
-        //key query value
-        Operator<DTYPE> *ContextVector = new AttentionModule<DTYPE>(pEncoder, hidden, pEncoder, pMask, "attention");
-
-        out = new ConcatenateColumnWise<DTYPE>(hidden,ContextVector, "concatenate");
-
-        //contextvector는 hidden vector와 size가 동일할 수 밖에 없음!
-        out = new Linear<DTYPE>(out, hiddensize*2, hiddensize, TRUE, "Fully-Connected-H2HBar");
-        // out = new Linear<DTYPE>(out, hiddensize*2, outputsize, TRUE, "Fully-Connected-H2HBar");
+        Operator<DTYPE> *hidden = new RecurrentLayer<DTYPE>(concate, embeddingDim+hiddensize, hiddensize, outputsize, m_initHiddenTensorholder, use_bias, pName+"_RNN");
 
 
-
-        //tanh
-        out  = new Tanh<DTYPE>(out, "rnn_tanh");
-        //
-        // //linear 한번 더
-        // //사이즈 적어둔게 하나도 없음....
-        out = new Linear<DTYPE>(out, hiddensize, outputsize, TRUE, "Fully-Connected-HBar2O");
-
-
+        //linear
+        out = new Linear<DTYPE>(hidden, hiddensize, outputsize, TRUE, pName+"_Fully-Connected-H2O");
 
         this->AnalyzeGraph(out);
+
+        std::cout<<"연결 바꾸기 전"<<'\n';
+        Container<Operator<DTYPE> *> *attention_C = ContextVector->GetInputContainer();
+        std::cout<<(*attention_C)[0]->GetName()<<'\n';
+        std::cout<<(*attention_C)[1]->GetName()<<'\n';
+        std::cout<<(*attention_C)[2]->GetName()<<'\n';
+        std::cout<<(*attention_C)[3]->GetName()<<'\n';
+        //연결 바꾸기....
+        ContextVector->GetInputContainer()->Pop(m_Query);
+        ContextVector->GetInputContainer()->Pop(pEncoder);
+        ContextVector->GetInputContainer()->Pop(pMask);
+        ContextVector->GetInputContainer()->Push(hidden);
+        ContextVector->GetInputContainer()->Push(pEncoder);
+        ContextVector->GetInputContainer()->Push(pMask);
+
+        std::cout<<"연결 변경 후"<<'\n';
+        std::cout<<(*attention_C)[0]->GetName()<<'\n';
+        std::cout<<(*attention_C)[1]->GetName()<<'\n';
+        std::cout<<(*attention_C)[2]->GetName()<<'\n';
+        std::cout<<(*attention_C)[3]->GetName()<<'\n';
+
+        //현재 문제가..... AttentionModule 안에 있는 operator의 연결구조는 바뀌지않음....
+
+        //내부의 query 연결까지 수정....
+        //SetQuery까지 해주면...?
+        ContextVector->SetQuery(hidden);
 
         return TRUE;
     }
 
 
-
-    //5월 22일....! time 처리하는 부분 밖으로 이동!!!
-
-    //Length shape : [1, ba, 1, 1, 1]
-    //구현상 -1을 해줘야됨!
     int ForwardPropagate(int pTime=0) {
 
         //std::cout<<"attention decoder forward "<<'\n';
@@ -130,7 +139,7 @@ public:
         // }
 
         //decoder output 확인하기!
-        //std::cout<<"AttentionDecoder_Module Forward 결과"<<'\n';
+        //std::cout<<"Bahdanau Forward 결과"<<'\n';
         // std::cout<<this->GetResult()->GetShape()<<'\n';
         // std::cout<<this->GetResult()<<'\n';
 
@@ -200,6 +209,9 @@ public:
 
         return TRUE;
     }
+
+
+
 
 };
 

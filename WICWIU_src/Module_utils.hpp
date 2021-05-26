@@ -26,4 +26,10 @@
 #include "Module/AttentionModule.hpp"
 #include "Module/AttentionDecoder_Module.hpp"
 
+
+#include "Module/Bahdanau.hpp"
+#include "Module/Bahdanau2.hpp"
+
+#include "Module/BidirectionalRecurrentLayer.hpp"
+
 #endif // ifndef __MODULE_UTIL_H__

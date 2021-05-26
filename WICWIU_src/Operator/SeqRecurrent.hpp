@@ -377,6 +377,7 @@ public:
 
     int  ForwardPropagate(int pTime = 0) {
 
+        // std::cout<<"Forward RNN"<<'\n';
 
         //*********************************************inithidden 처리하기!!!*****************************************
         if(pTime==0 && m_aInitHidden != NULL){

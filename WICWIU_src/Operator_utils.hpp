@@ -66,8 +66,8 @@
 #include "Operator/MaskedFill.hpp"
 #include "Operator/PaddingAttentionMaskRNN.hpp"
 
-//RNN 빠르게 수정
-#include "Operator/HiddenMatMul.hpp"
-//#include "Operator/FastRecurrent.hpp"
+
+//2021 5/26
+#include "Operator/Flip.hpp"
 
 #endif  // __OPERATER_UTIL_H__

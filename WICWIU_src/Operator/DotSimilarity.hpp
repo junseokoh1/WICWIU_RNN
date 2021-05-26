@@ -47,6 +47,11 @@ public:
     void Delete() {
     }
 
+    virtual int SetQuery(Operator<DTYPE>* pQuery){
+        std::cout<<"DotSimilarity SetQuery"<<'\n';
+        this->GetInputContainer()->Pop(this->GetInputContainer()->GetLast());
+        this->GetInputContainer()->Push(pQuery);
+    }
 
     //pQuery - t 시점의 decoder hidden, recurent의 result를 가져올거임!
     //pKey - 모든 Encoder의 hidden 값!
@@ -54,7 +59,12 @@ public:
     //batch에 대해서는 확인안해봄!....
     int ForwardPropagate(int pTime = 0) {
 
-        //std::cout<<"DotSimilarity Forward "<<pTime<<'\n';
+        // std::cout<<"DotSimilarity Forward "<<pTime<<'\n';
+
+        //연결 확인해보기
+        // Container<Operator<DTYPE> *> *inputcontainer = this->GetInputContainer();
+        // std::cout<<(*inputcontainer)[0]->GetName()<<'\n';
+        // std::cout<<(*inputcontainer)[1]->GetName()<<'\n';
 
         Tensor<DTYPE> *key = this->GetInput()[0]->GetResult();
         Tensor<DTYPE> *query  = this->GetInput()[1]->GetResult();
@@ -64,11 +74,13 @@ public:
         Shape *queryShape  = query->GetShape();
         Shape *resultShape = result->GetShape();
 
-        // std::cout<<"key(encoder hidden) shape"<<'\n';
+        // std::cout<<this->GetInput()[1]->GetName()<<'\n';
+
+        // std::cout<<"------key(encoder hidden) shape"<<'\n';
         // std::cout<<keyShape<<'\n';
-        // std::cout<<"Query(decoder hidden) shape"<<'\n';
+        // std::cout<<"------Query(decoder hidden) shape"<<'\n';
         // std::cout<<queryShape<<'\n';
-        // std::cout<<"result shape"<<'\n';
+        // std::cout<<"------result shape"<<'\n';
         // std::cout<<resultShape<<'\n';
 
         int keytimesize = key->GetTimeSize();
@@ -76,13 +88,18 @@ public:
         int colsize     = key->GetColSize();
 
         for(int ti=0; ti< keytimesize; ti++){
+            // std::cout<<ti<<" ";
             for(int ba = 0; ba < batchsize; ba++) {
+                // std::cout<<'\n'<<ba<<" ";
                 for(int co = 0; co < colsize; co++) {
+                    // std::cout<<ti<<" "<<ba<<" "<<co<<'\n';
                     (*result)[Index5D(resultShape, pTime, ba, 0, 0, ti)] +=
                         (*query)[Index5D(queryShape, pTime, ba, 0, 0, co)] * (*key)[Index5D(keyShape, ti, ba, 0, 0, co)];
                 }
             }
         }
+
+        // std::cout<<'\n';
 
         return TRUE;
     }

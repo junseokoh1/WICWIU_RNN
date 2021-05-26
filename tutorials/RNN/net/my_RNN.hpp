@@ -16,19 +16,12 @@ public:
         out = new EmbeddingLayer<float>(x, vocab_length, embedding_dim, "Embedding");
 
         // ======================= layer 1=======================
-        out = new RecurrentLayer<float>(out, embedding_dim, 128, vocab_length, NULL, TRUE, "Recur_1");
+        // out = new RecurrentLayer<float>(out, embedding_dim, 128, vocab_length, NULL, TRUE, "Recur_1");
         //out = new LSTM2Layer<float>(out, embedding_dim, 128, vocab_length, NULL, TRUE, "Recur_1");
         //out = new GRULayer<float>(out, embedding_dim, 128, NULL, TRUE, "Recur_1");
 
 
-  //      out = new RecurrentLayer<float>(out, vocab_length, 64, vocab_length, TRUE, "Recur_1");
-
-        //out = new DeepRecurrentLayer<float>(x, vocab_length, 128, vocab_length, TRUE, "Recur_1");
-
-        //out = new LSTMLayer<float>(x, vocab_length, 32, vocab_length, TRUE, "Recur_1");
-        //out = new LSTM2Layer<float>(x, vocab_length, 64, vocab_length, TRUE, "Recur_1");
-
-        //out = new GRULayer<float>(x, vocab_length, 128, vocab_length, TRUE, "Recur_1");
+        out = new BidirectionalRecurrentLayer<float>(out, embedding_dim, 64, NULL, TRUE, "Bi_RNN");
 
         // // ======================= layer 2=======================
         out = new Linear<float>(out, 128, vocab_length, TRUE, "Fully-Connected_2");

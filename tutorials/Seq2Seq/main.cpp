@@ -13,12 +13,13 @@
 
 using namespace std;
 
-#define EMBEDDIM               350            // 이걸 늘리면 segfault가 발생하는데... 이상하네....
+#define EMBEDDIM               64            // 이걸 늘리면 segfault가 발생하는데... 이상하네....
+#define HIDDENDIM              128
 // #define ENCODER_TIME           3
 // #define DECODER_TIME           4
-#define BATCH                  64
+#define BATCH                  5
 #define EPOCH                  10
-#define MAX_TRAIN_ITERATION    1500   // (60000 / BATCH)
+#define MAX_TRAIN_ITERATION    500   // (60000 / BATCH)
 #define MAX_TEST_ITERATION     5   // (10000 / BATCH)
 #define GPUID                  6
 
@@ -35,7 +36,7 @@ int main(int argc, char const *argv[]) {
     double  nProcessExcuteTime = 0;
 
     //RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/eng-fra_short.txt", "eng", "fra");      //input 2개는 확인해 봤지만 label은 확인하지 못함!
-    RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/test3.txt", "eng", "fra");
+    RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/test2.txt", "eng", "fra");
     //RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/test2.txt", "eng", "fra");
     //RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/padding_test.txt", "eng", "fra");
     translation_data->BuildVocab();
@@ -57,8 +58,8 @@ int main(int argc, char const *argv[]) {
     Tensorholder<float> *decoder_lengths_holder = new Tensorholder<float>(Tensor<float>::Zeros(1, BATCH, 1, 1, 1), "DecoderLengths");
 
     //NeuralNetwork<float> *net = new my_SeqToSeq(encoder_x_holder, decoder_x_holder, label_holder, vocab_size, EMBEDDIM);
-    NeuralNetwork<float> *net = new my_SeqToSeq(encoder_x_holder, decoder_x_holder, label_holder, vocab_size, EMBEDDIM, encoder_lengths_holder, decoder_lengths_holder);
-    //NeuralNetwork<float> *net = new my_AttentionSeqToSeq(encoder_x_holder, decoder_x_holder, label_holder, encoder_lengths_holder, decoder_lengths_holder, vocab_size, EMBEDDIM);
+    // NeuralNetwork<float> *net = new my_SeqToSeq(encoder_x_holder, decoder_x_holder, label_holder, vocab_size, EMBEDDIM, HIDDENDIM, encoder_lengths_holder, decoder_lengths_holder);
+    NeuralNetwork<float> *net = new my_AttentionSeqToSeq(encoder_x_holder, decoder_x_holder, label_holder, encoder_lengths_holder, decoder_lengths_holder, vocab_size, EMBEDDIM, HIDDENDIM);
 
 #ifdef __CUDNN__
     std::cout<<"GPU환경에서 실행중 입니다."<<'\n';
@@ -81,6 +82,7 @@ int main(int argc, char const *argv[]) {
     // net->FeedInputTensor(2, x, label);
 
     for (int i = epoch + 1; i < EPOCH; i++) {
+        std::cout << "EPOCH : " << i << '\n';
 
         float train_accuracy = 0.f;
         float train_avg_loss = 0.f;
@@ -92,7 +94,6 @@ int main(int argc, char const *argv[]) {
 
         startTime = clock();
 
-        //net->FeedInputTensor(2, x_tensor, label_tensor);                        //왜??? 왜 안에 넣어두면 안되는거지???
 
         // ============================== Train ===============================
         std::cout << "Start Train" <<'\n';
@@ -155,15 +156,15 @@ int main(int argc, char const *argv[]) {
             //train_accuracy += net->GetAccuracy(4);                               // default로는 10으로 되어있음   이게 기존꺼임
             //train_avg_loss += net->GetLoss();
 
-            train_accuracy = net->GetAccuracy(vocab_size, d_l);
-            train_avg_loss = net->GetLoss(d_l); //d_l
+            train_accuracy += net->GetAccuracy(vocab_size, d_l);
+            train_avg_loss += net->GetLoss(d_l); //d_l
 
             //std::cout<<'\n';
 
             printf("\rTrain complete percentage is %d / %d -> loss : %f, acc : %f"  ,
                    j + 1, MAX_TRAIN_ITERATION,
-                   train_avg_loss, ///  (j + 1),                              //+=이니깐 j+1로 나눠주는거는 알겠는데........ 근데 왜 출력되는 값이 계속 작아지는 거지??? loss값이 같아도 왜 이건 작아지는거냐고...
-                   train_accuracy  /// (j + 1)
+                   train_avg_loss /  (j + 1),                              //+=이니깐 j+1로 나눠주는거는 알겠는데........ 근데 왜 출력되는 값이 계속 작아지는 거지??? loss값이 같아도 왜 이건 작아지는거냐고...
+                   train_accuracy  / (j + 1)
                  );
             //std::cout<<'\n';
 
@@ -217,6 +218,9 @@ int main(int argc, char const *argv[]) {
             //
 
             map<int, string>* index2vocab = translation_data->GetpIndex2Vocab();
+
+
+        //여기서도..... NN에 들어가있는 module의 개수가 달라서.... error가 나겠다!!!
         #ifdef __CUDNN__
             net->SentenceTranslateOnGPU(index2vocab);
         #else

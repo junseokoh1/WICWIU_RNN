@@ -726,10 +726,11 @@ template<typename DTYPE> int RNNParalleledCorpusDataset<DTYPE>::GetLength(){
 
     }
 
+
     if(flag == 1)
-      (*Label)[Index5D(LabelShape, m_DecoderMaxSentenceLength-1, 0, 0, 0, 0)] = 1;    //EOS 처리
+      (*Label)[Index5D(LabelShape, m_DecoderMaxSentenceLength-1, 0, 0, 0, 0)] = 2;    //EOS 처리    여기 2개를 1로 했었는데... 버그인거 같아... 2로 해줘야 되는거 바꾸긴했는데 master에 올라가있는건 1로 되어있음...
     else
-      (*Label)[Index5D(LabelShape, m_DecoderMaxSentenceLength-1, 0, 0, 0, 2)] = 1;
+      (*Label)[Index5D(LabelShape, m_DecoderMaxSentenceLength-1, 0, 0, 0, 2)] = 2;
 
         //(*Label)[Index5D(LabelShape, m_DecoderMaxSentenceLength-1, 0, 0, 0, 2)] = 1;
 

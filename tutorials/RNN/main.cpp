@@ -99,6 +99,7 @@ int main(int argc, char const *argv[]) {
     float best_acc = 0;
     int   epoch    = 0;
 
+    // train_dataloader->StartProcess();
     // net->FeedInputTensor(2, x, label);
 
     for (int i = epoch + 1; i < EPOCH; i++) {
