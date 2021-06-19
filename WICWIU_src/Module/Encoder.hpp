@@ -31,10 +31,11 @@ public:
         out = new EmbeddingLayer<DTYPE>(out, vocablength, embeddingDim, pName+"_Embedding");
 
 
-        out = new RecurrentLayer<DTYPE>(out, embeddingDim, hiddensize, 10, NULL, use_bias, pName+"_RNN");
+        // out = new RecurrentLayer<DTYPE>(out, embeddingDim, hiddensize, 10, NULL, use_bias, pName+"_RNN");
         // out = new LSTM2Layer<float>(out, embeddingDim, hiddensize, NULL, TRUE, "Recur_1");
         // out = new GRULayer<float>(out, embeddingDim, hiddensize, NULL, TRUE, "Recur_1");
 
+        out = new BidirectionalRecurrentLayer<DTYPE>(out, embeddingDim, hiddensize, NULL, use_bias, pName+"_RNN");
 
 
         this->AnalyzeGraph(out);
@@ -53,6 +54,8 @@ public:
         for (int i = 0; i < numOfExcutableOperator; i++) {
             (*ExcutableOperator)[i]->ForwardPropagate(pTime);
         }
+
+        // std::cout<<"Encoder forward 완료"<<'\n';
 
         return TRUE;
     }

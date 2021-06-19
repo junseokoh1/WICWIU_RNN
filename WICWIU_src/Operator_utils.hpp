@@ -66,8 +66,8 @@
 #include "Operator/MaskedFill.hpp"
 #include "Operator/PaddingAttentionMaskRNN.hpp"
 
-
 //2021 5/26
 #include "Operator/Flip.hpp"
+#include "Operator/ConcatSimilarity.hpp"
 
 #endif  // __OPERATER_UTIL_H__

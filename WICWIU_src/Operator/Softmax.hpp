@@ -203,6 +203,10 @@ public:
 
         int ti = pTime;
 
+        // std::cout<<"softmax back"<<'\n';
+        // std::cout<<this_delta->GetShape()<<'\n';
+        // std::cout<<this_delta<<'\n';
+
         int capacity = colsize;
 
         int start = 0;

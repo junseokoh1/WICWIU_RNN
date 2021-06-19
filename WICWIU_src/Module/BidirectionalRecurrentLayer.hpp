@@ -41,12 +41,14 @@ public:
         Tensorholder<DTYPE> *rBias_b = new Tensorholder<DTYPE>(Tensor<DTYPE>::Constants(1, 1, 1, 1, hiddenSize, 0.f), "RNN_Bias_b_" + pName);
 
 #ifdef __CUDNN__
-        pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddenSize, hiddenSize+inputSize+1, 0.0, 0.01), "RecurrentLayer_pWeight_h2h_" + pName);    //For 1 bias option
+        // pWeight_h2h = new Tensorholder<DTYPE>(Tensor<DTYPE>::Random_normal(1, 1, 1, hiddenSize, hiddenSize+inputSize+1, 0.0, 0.01), "RecurrentLayer_pWeight_h2h_" + pName);    //For 1 bias option
 #endif  // __CUDNN__
 
         Operator<DTYPE> * Fout = new SeqRecurrent<DTYPE>(out, pWeight_x2h_f, pWeight_h2h_f, rBias_f, initHidden);
 
         Operator<DTYPE> * Bout = new SeqRecurrent<DTYPE>(reversedInput, pWeight_x2h_b, pWeight_h2h_b, rBias_b, initHidden);
+
+        Bout = new FlipTimeWise<DTYPE>(Bout, "FLIP_AFTER_RNN");                 //다시 Flip하고 concate해주는게 맞음!
 
         Operator<DTYPE> * concate = new ConcatenateColumnWise<DTYPE>(Fout,Bout, "concatenate");
 

@@ -370,7 +370,7 @@ public:
 
         int ti = pTime;
         //#if __RNNDEBUG__
-        //std::cout<<this->GetName()<<"의 MatMul gradient 계산 time : "<<pTime<<'\n';
+        // std::cout<<this->GetName()<<"의 MatMul gradient 계산 time : "<<pTime<<'\n';
         //#endif
 
         for (int ba = 0; ba < batchsize; ba++) {
@@ -382,8 +382,14 @@ public:
                             input_index  = Index5D(inputTenShape, ti, ba, ch, ro, hid);
                             result_index = Index5D(resultTenShape, ti, ba, ch, ro, co);
 
+                            // if(isnan((*this_delta)[result_index]) != 0){  std::cout<<"matmul 이전에 nan"<<'\n'; exit(0);}
+                            // if(isnan((*input_delta)[input_index]) != 0){  std::cout<<"matmul 이전에 inputGradient가 nan"<<'\n'; std::cout<<this->GetInput()[1]->GetName()<<'\n'; exit(0);}
+                            // if(isnan(  (*input_delta)[input_index]      + (*weight)[weight_index] * (*this_delta)[result_index]  ) !=0 ){std::cout<<'\n'<<(*input_delta)[input_index]<<'\n';}
+
                             (*input_delta)[input_index]      += (*weight)[weight_index] * (*this_delta)[result_index];
                             (*weight_gradient)[weight_index] += (*input)[input_index] * (*this_delta)[result_index];
+
+                            // if(isnan((*input_delta)[input_index]) != 0){  std::cout<<"matmul 에서 nan"<<'\n'; std::cout<<(*weight)[weight_index]<<" "; std::cout<<(*this_delta)[result_index]<<" ";   std::cout<<(*weight)[weight_index] * (*this_delta)[result_index]<<" "; exit(0);}
 
                           //  #if __RNNDEBUG__
                         //    std::cout<<"index "<<ba<<ch<<ro<<co<<hid<<'\n';

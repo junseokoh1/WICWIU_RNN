@@ -39,6 +39,8 @@ int main(int argc, char const *argv[]) {
       (*(concat->GetDelta()))[i] = i;
     }
 
+    std::cout<<"concate backward 전 gradient 값"<<'\n';
+
     std::cout << concat->GetDelta()->GetShape() << '\n';
     std::cout << concat->GetDelta() << '\n';
 

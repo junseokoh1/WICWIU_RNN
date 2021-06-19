@@ -17,6 +17,8 @@
 #include "Module/EmbeddingTestLayer.hpp"
 #include "Module/EmbeddingLayer.hpp"
 
+#include "Module/BidirectionalRecurrentLayer.hpp"
+
 #include "Module/Encoder.hpp"
 #include "Module/Decoder.hpp"
 #include "Module/Decoder2.hpp"
@@ -29,7 +31,5 @@
 
 #include "Module/Bahdanau.hpp"
 #include "Module/Bahdanau2.hpp"
-
-#include "Module/BidirectionalRecurrentLayer.hpp"
 
 #endif // ifndef __MODULE_UTIL_H__

@@ -28,7 +28,9 @@ public:
 
         // out = new AttentionDecoder_Module<float>(DecoderInput, out, mask, vocabLength, embeddingDim, hiddenDim, vocabLength, EncoderLengths, TRUE, "Decoder");
 
-        out = new Bahdanau2<float>(DecoderInput, out, mask, vocabLength, embeddingDim, hiddenDim, vocabLength, EncoderLengths, TRUE, "Decoder");
+        out = new Bahdanau2<float>(DecoderInput, out, mask, vocabLength, embeddingDim, hiddenDim, vocabLength, EncoderLengths, TRUE, "Bahdanau_Decoder");
+
+
 
         // ContextVector = new AttentionModule<float>(enc, dec, mask, "attention");
         //
@@ -49,10 +51,10 @@ public:
         // 1.0이 clipValue 값! 인자 하나가 더 생김!
         //현재 RMSprop clip값 = 0.5로 되어있음
         //SetOptimizer(new GradientDescentOptimizer<float>(GetParameter(), 0.001, 0.9, 1.0, MINIMIZE));                      // Optimizer의 첫번째 인자로 parameter목록을 전달해주는거고!!!   즉 updateparameter를 할 때 넘겨주는 parameter에 대해서만 함!!!!!
-        // SetOptimizer(new RMSPropOptimizer<float>(GetParameter(), 0.01, 0.9, 1e-08, FALSE, MINIMIZE));
+        SetOptimizer(new RMSPropOptimizer<float>(GetParameter(), 0.01, 0.9, 1e-08, FALSE, MINIMIZE));
         // SetOptimizer(new AdamOptimizer<float>(GetParameter(), 0.001, 0.9, 0.999, 1e-08, MINIMIZE));
         // SetOptimizer(new NagOptimizer<float>(GetParameter(), 0.001, 0.9, MINIMIZE));
-        SetOptimizer(new AdagradOptimizer<float>(GetParameter(), 0.001, 0.9, MINIMIZE));      //MAXIMIZE
+        // SetOptimizer(new AdagradOptimizer<float>(GetParameter(), 0.001, 0.9, MINIMIZE));      //MAXIMIZE
 
     }
 

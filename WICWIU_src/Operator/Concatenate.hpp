@@ -262,8 +262,12 @@ public:
     }
 
     int BackPropagate(int pTime = 0) {
+
         Tensor<DTYPE> *this_delta  = this->GetDelta();
         Tensor<DTYPE> *input_delta = NULL;
+
+        // std::cout<<"ConcatenateColumnWise backpropagate"<<'\n';
+        // std::cout<<this_delta<<'\n';
 
         int timesize  = this_delta->GetTimeSize();
         int batchsize = this_delta->GetBatchSize();
@@ -294,6 +298,7 @@ public:
             }
 
             // totalchannelsize += channelsize;
+            // std::cout<<input_delta<<'\n';
         }
 
         return TRUE;

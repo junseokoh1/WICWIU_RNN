@@ -118,7 +118,7 @@ template<typename DTYPE> int MaskedFill<DTYPE>::BackPropagate(int pTime) {
     int rowsize     = input_delta->GetRowSize();
     int colsize     = input_delta->GetColSize();
 
-    // std::cout<<"maskedfill backward"<<'\n';
+    // std::cout<<"maskedfill backward  "<<pTime<<'\n';
     // std::cout<<this_delta<<'\n';
 
     int ti = pTime;
@@ -127,14 +127,21 @@ template<typename DTYPE> int MaskedFill<DTYPE>::BackPropagate(int pTime) {
         for (int ch = 0; ch < channelsize; ch++) {
             for (int ro = 0; ro < rowsize; ro++) {
                 for (int co = 0; co < colsize; co++) {
+                    int index = Index5D(pThisDeltaTenShape, ti, ba ,ch, ro ,co);
                     if((*mask)[Index5D(maskTenShape, 0, ba, 0, ro, co)]) {                  //여기도 ti을 0으로 수정해줌!   ch에 1 -> 0으로 수정...
-                      int index = Index5D(pThisDeltaTenShape, ti, ba ,ch, ro ,co);
-                      (*input_delta)[index] = (*this_delta)[index] * -1e9;
+                      // int index = Index5D(pThisDeltaTenShape, ti, ba ,ch, ro ,co);
+                      (*input_delta)[index] = 0; // (*this_delta)[index] * -1e9;
+                    }
+                    else{
+                        (*input_delta)[index] = (*this_delta)[index];
                     }
                 }
             }
         }
     }
+
+    // std::cout<<"input_delta"<<'\n';
+    // std::cout<<input_delta<<'\n';
 
     return TRUE;
 }

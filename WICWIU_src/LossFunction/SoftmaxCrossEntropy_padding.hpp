@@ -255,10 +255,11 @@ public:
                 #if __RNNDEBUG__
                 std::cout<<(*input_delta)[i]<<" = "<<(*softmaxresult)[i]<<" - "<<(*label)[i]<<'\n';
                 #endif
+                if( isnan( (*input_delta)[i] ) != 0 ){   std::cout<<"lossfunction에서 nan"<<'\n'; exit(0);}
             }
         }
 
-        //std::cout<<"연결되어 있는 operator의 이름"<<this->GetOperator()->GetName()<<'\n';  //결과 : Recur_1
+        // std::cout<<"연결되어 있는 operator의 이름"<<this->GetOperator()->GetName()<<'\n';  //결과 : Recur_1
 
         //if(pTime == 0)
         #if __RNNDEBUG__

@@ -402,13 +402,13 @@ public:
                 }
             }
 
-            //std::cout<<"inithidden값!"<<'\n';
+            // std::cout<<"inithidden값!"<<'\n';
             //std::cout<<initHidden<<'\n';
         }
         //*********************************************inithidden 처리하기!!!*****************************************
 
-
         m_aInput2Hidden->ForwardPropagate(pTime);
+
 
         if (pTime != 0) {
             Tensor<DTYPE> *prevHidden = ApplyActivation->GetResult();
@@ -444,6 +444,7 @@ public:
         for(int ba = 0; ba<batchsize; ba++){
             for (int i = 0; i < colSize; i++) {
                 (*result)[Index5D(ResultShape, pTime, ba, 0, 0, i)] = (*_result)[Index5D(ResultShape, pTime, ba, 0, 0, i)];
+                // std::cout<<
             }
         }
 
@@ -463,6 +464,9 @@ public:
 
         for(int ba=0; ba<batchsize; ba++){
             for (int i = 0; i < colSize; i++) {
+
+                if(isnan((*grad)[Index5D(ResultShape, pTime, ba, 0, 0, i)]) != 0){   std::cout<<"Recurrent 이전에 nan"<<'\n'; exit(0);}
+
                 (*_grad)[Index5D(ResultShape, pTime, ba, 0, 0, i)] = (*grad)[Index5D(ResultShape, pTime, ba, 0, 0, i)];
             }
         }
@@ -629,7 +633,7 @@ public:
         if(pTime != 0)                                                           //... 여기 embedding이랑 관련해서 문제 있을거 같은데....
           return TRUE;
 
-      // std::cout<<"Backward"<<'\n';
+      std::cout<<"RNN Backward"<<'\n';
       // std::cout<<"Recurrent input"<<'\n';
       // std::cout<<input->GetShape()<<'\n';
       // std::cout<<input<<'\n';

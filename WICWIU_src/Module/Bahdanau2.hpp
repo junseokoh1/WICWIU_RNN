@@ -48,11 +48,16 @@ public:
         //Embedding
         Operator<DTYPE> *embedding = new EmbeddingLayer<float>(out, vocabLength, embeddingDim, pName+"_Embedding");
 
+        //t-1의 decoder hidden을 사용하여 t time의 contextvector를 구하기!
         Operator<DTYPE> *ContextVector = new AttentionModule<DTYPE>(pEncoder, m_Query, pEncoder, pMask, pName+"_AttentionModule");
 
         Operator<DTYPE> *concate = new ConcatenateColumnWise<DTYPE>(embedding,ContextVector, pName+"_concatenate");
 
-        Operator<DTYPE> *hidden = new RecurrentLayer<DTYPE>(concate, embeddingDim+hiddensize, hiddensize, outputsize, m_initHiddenTensorholder, use_bias, pName+"_RNN");
+        // std::cout<<"dafds;flkjafdl;kajsdfl;kasjdfl;kadsjfkl;adsjfl;kadsjdflk;"<<'\n';
+        // std::cout<<concate->GetResult()->GetShape()<<'\n';      //320 : 256 + 64
+        // std::cout<<embeddingDim+hiddensize<<'\n';               //192 : 128 + 64
+
+        Operator<DTYPE> *hidden = new RecurrentLayer<DTYPE>(concate, embeddingDim+hiddensize*2, hiddensize, outputsize, m_initHiddenTensorholder, use_bias, pName+"_RNN");
 
 
         //linear
@@ -60,12 +65,17 @@ public:
 
         this->AnalyzeGraph(out);
 
-        std::cout<<"연결 바꾸기 전"<<'\n';
-        Container<Operator<DTYPE> *> *attention_C = ContextVector->GetInputContainer();
+        //setparameter때문에 이렇게 되는거....
+        std::cout<<"----------------연결 바꾸기 전"<<'\n';
+        Container<Operator<DTYPE> *> *attention_C = ContextVector->GetInputContainer();         //GetInputContainer는 operator에만 있는 함수!...     그리고 연결해주는거는 결국... AddInputEdge 즉 결국은 AddEdgebetweenOperators 이거인디...
+        std::cout<<attention_C->GetSize()<<'\n';
         std::cout<<(*attention_C)[0]->GetName()<<'\n';
         std::cout<<(*attention_C)[1]->GetName()<<'\n';
         std::cout<<(*attention_C)[2]->GetName()<<'\n';
         std::cout<<(*attention_C)[3]->GetName()<<'\n';
+        std::cout<<(*attention_C)[4]->GetName()<<'\n';
+        std::cout<<(*attention_C)[5]->GetName()<<'\n';
+        std::cout<<(*attention_C)[6]->GetName()<<'\n';
         //연결 바꾸기....
         ContextVector->GetInputContainer()->Pop(m_Query);
         ContextVector->GetInputContainer()->Pop(pEncoder);
@@ -74,11 +84,11 @@ public:
         ContextVector->GetInputContainer()->Push(pEncoder);
         ContextVector->GetInputContainer()->Push(pMask);
 
-        std::cout<<"연결 변경 후"<<'\n';
+        std::cout<<"---------------연결 변경 후"<<'\n';
         std::cout<<(*attention_C)[0]->GetName()<<'\n';
         std::cout<<(*attention_C)[1]->GetName()<<'\n';
         std::cout<<(*attention_C)[2]->GetName()<<'\n';
-        std::cout<<(*attention_C)[3]->GetName()<<'\n';
+        std::cout<<(*attention_C)[3]->GetName()<<'\n'<<'\n';
 
         //현재 문제가..... AttentionModule 안에 있는 operator의 연결구조는 바뀌지않음....
 
@@ -92,7 +102,7 @@ public:
 
     int ForwardPropagate(int pTime=0) {
 
-        //std::cout<<"attention decoder forward "<<'\n';
+        // std::cout<<"Bahdanau2 decoder forward "<<'\n';
 
         //Encoder의 마지막값 복사해주기!
         Tensor<DTYPE> *_initHidden = this->GetInput()[1]->GetResult();
@@ -103,7 +113,7 @@ public:
 
         int enTimesize = _initHidden->GetTimeSize();
         int batchsize  = _initHidden->GetBatchSize();
-        int colSize    = _initHidden->GetColSize();
+        int colSize    = initHidden->GetColSize();                                    //여기를!!! encoder가 BidirectionalRecurrentLayer 이여서 수정함!!!
 
         if( m_EncoderLengths != NULL){
 
@@ -135,6 +145,7 @@ public:
         // for(int ti=0; ti<timesize; ti++){
             for (int i = 0; i < numOfExcutableOperator; i++) {
                 (*ExcutableOperator)[i]->ForwardPropagate(pTime);
+                // std::cout<<(*ExcutableOperator)[i]->GetName()<<"완료"<<'\n';
             }
         // }
 
@@ -177,7 +188,7 @@ public:
 
         int enTimesize = enGradient->GetTimeSize();
         int batchSize = enGradient->GetBatchSize();
-        int colSize = enGradient->GetColSize();
+        int colSize = _enGradient->GetColSize();                                      //여기도 BidirectionalRecurrentLayer 때문에 수정함!!!!
 
          // std::cout<<"decoder가 계산한 init_hidden의 gradient값"<<'\n';
          // std::cout<<_enGradient<<'\n';

@@ -499,15 +499,14 @@ template<typename DTYPE> int Operator<DTYPE>::AddEdgebetweenOperators(int numInp
     #ifdef __DEBUG__
     std::cout << "Operator<DTYPE>::Alloc(Tensor<DTYPE> *)" << '\n';
     #endif  // __DEBUG__
-    //std::cout << "Operator<DTYPE>::numInput받는 AddEdgebetweenOperators" << '\n';
-    Operator<DTYPE> *temp = NULL;
 
+    Operator<DTYPE> *temp = NULL;
 
     int null_count = 0;
 
     for (int i = 0; i < numInput; i++) {
         temp = va_arg(ap, Operator<DTYPE> *);
-
+        // std::cout<<i<<"  "<<temp->GetName()<<'\n';
         if (!temp) {
             null_count++;
         } else {

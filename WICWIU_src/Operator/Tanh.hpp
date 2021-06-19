@@ -143,8 +143,10 @@ public:
             for (int ch = 0; ch < channelsize; ch++) {
                 for (int ro = 0; ro < rowsize; ro++) {
                     for (int co = 0; co < colsize; co++) {
-                        if(isnan((*input)[Index5D(resultTenShape, ti, ba, ch, ro, co)]) != 0)
+                        if(isnan((*input)[Index5D(resultTenShape, ti, ba, ch, ro, co)]) != 0){
                           std::cout<<"입력값이 이미 nan임";
+                          exit(0);
+                        }
                         (*result)[Index5D(resultTenShape, ti, ba, ch, ro, co)]
                             = tanh((*input)[Index5D(resultTenShape, ti, ba, ch, ro, co)]);
 

@@ -86,11 +86,18 @@ public:
 
     int BackPropagate(int pTime = 0) {
 
-        //std::cout<<"AttentionByModule BackPropagate 호출 "<<pTime<<'\n';
+        // std::cout<<"AttentionByModule BackPropagate 호출 "<<pTime<<'\n';
+        // std::cout<<this->GetInput()[0]->GetName()<<'\n';
 
-        Tensor<DTYPE> *attenionWeight = this->GetInput()[0]->GetResult();
-        Tensor<DTYPE> *value  = this->GetInput()[1]->GetGradient();
+        Tensor<DTYPE> *attenionWeight = this->GetInput()[0]->GetResult();             //여기는 GetResult로 되어있었음!....
+        Tensor<DTYPE> *attenionWeightGradient = this->GetInput()[0]->GetGradient();
+
+        Tensor<DTYPE> *value  = this->GetInput()[1]->GetResult();
+        Tensor<DTYPE> *valueGradient  = this->GetInput()[1]->GetGradient();
+
         Tensor<DTYPE> *result = this->GetGradient();
+
+        // std::cout<<result<<'\n';
 
         //context vector = result, value를 사용해서 this->result에 저장!
         int batchsize   = result->GetBatchSize();
@@ -108,15 +115,22 @@ public:
         for(int ti=0; ti< valueTimeSize; ti++){
             for(int ba = 0; ba < batchsize; ba++) {
                 for(int co = 0; co < colsize; co++) {
-                    (*attenionWeight)[Index5D(weightShape, pTime, ba, 0, 0, ti)] +=
+
+                    if(isnan((*result)[Index5D(resultShape, pTime, ba, 0, 0, co)]) != 0){   std::cout<<"AttentionByModule 이전에 nan"<<'\n'; exit(0);}
+
+                    (*attenionWeightGradient)[Index5D(weightShape, pTime, ba, 0, 0, ti)] +=
                         (*value)[Index5D(valueShape, ti, ba, 0, 0, co)] * (*result)[Index5D(resultShape, pTime, ba, 0, 0, co)];
 
-                    (*value)[Index5D(valueShape, ti, ba, 0, 0, co)] +=
+                    if(isnan((*attenionWeightGradient)[Index5D(weightShape, pTime, ba, 0, 0, ti)]) != 0){   std::cout<<"AttentionByModule 내부에 nan"<<'\n'; exit(0);}
+
+                    (*valueGradient)[Index5D(valueShape, ti, ba, 0, 0, co)] +=
                         (*attenionWeight)[Index5D(weightShape, pTime, ba, 0, 0, ti)] * (*result)[Index5D(resultShape, pTime, ba, 0, 0, co)];
                 }
             }
         }
 
+        // std::cout<<attenionWeightGradient->GetShape()<<'\n';
+        // std::cout<<attenionWeightGradient<<'\n';
 
         return TRUE;
     }

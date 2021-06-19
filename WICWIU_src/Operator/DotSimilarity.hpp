@@ -66,6 +66,10 @@ public:
         // std::cout<<(*inputcontainer)[0]->GetName()<<'\n';
         // std::cout<<(*inputcontainer)[1]->GetName()<<'\n';
 
+        //bahdanau를 사용하기 위해 살짝 수정해보기...!!! Luong으로 하려면 이거 삭제해야됨!
+        // if(pTime == 0)
+        //   return TRUE;
+
         Tensor<DTYPE> *key = this->GetInput()[0]->GetResult();
         Tensor<DTYPE> *query  = this->GetInput()[1]->GetResult();
         Tensor<DTYPE> *result = this->GetResult();
@@ -94,7 +98,7 @@ public:
                 for(int co = 0; co < colsize; co++) {
                     // std::cout<<ti<<" "<<ba<<" "<<co<<'\n';
                     (*result)[Index5D(resultShape, pTime, ba, 0, 0, ti)] +=
-                        (*query)[Index5D(queryShape, pTime, ba, 0, 0, co)] * (*key)[Index5D(keyShape, ti, ba, 0, 0, co)];
+                        (*query)[Index5D(queryShape, pTime, ba, 0, 0, co)] * (*key)[Index5D(keyShape, ti, ba, 0, 0, co)];       //Luong이면 -1 삭제!
                 }
             }
         }
@@ -109,16 +113,28 @@ public:
     //pKey - 모든 Encoder의 hidden 값!
     int BackPropagate(int pTime = 0) {
 
-      //std::cout<<"---------------------DotSimilarity Forward----------------------"<<pTime<<'\n';
+      // std::cout<<"---------------------DotSimilarity backward----------------------"<<pTime<<'\n';
 
-      Tensor<DTYPE> *key = this->GetInput()[0]->GetGradient();
-      Tensor<DTYPE> *query  = this->GetInput()[1]->GetGradient();
+      //Luong이면 삭제!
+      // if(pTime == 0)
+      //   return TRUE;
+
+      // std::cout<<this->GetInput()[0]->GetName()<<'\n';
+
+
+      Tensor<DTYPE> *key = this->GetInput()[0]->GetResult();
+      Tensor<DTYPE> *keyGradient = this->GetInput()[0]->GetGradient();
+
+      Tensor<DTYPE> *query  = this->GetInput()[1]->GetResult();
+      Tensor<DTYPE> *queryGradient  = this->GetInput()[1]->GetGradient();
+
       Tensor<DTYPE> *result = this->GetGradient();
 
       Shape *keyShape = key->GetShape();
       Shape *queryShape  = query->GetShape();
       Shape *resultShape = result->GetShape();
 
+      // std::cout<<keyShape<<'\n';
 
       int keytimesize = key->GetTimeSize();
       int batchsize   = key->GetBatchSize();
@@ -129,11 +145,11 @@ public:
           for(int ba = 0; ba < batchsize; ba++) {
               for(int co = 0; co < colsize; co++) {
 
-                  (*query)[Index5D(queryShape, pTime, ba, 0, 0, co)] +=
+                  (*queryGradient)[Index5D(queryShape, pTime, ba, 0, 0, co)] +=
                       (*key)[Index5D(keyShape, ti, ba, 0, 0, co)] * (*result)[Index5D(resultShape, pTime, ba, 0, 0, ti)];
 
-                  (*key)[Index5D(keyShape, ti, ba, 0, 0, co)] +=
-                      (*query)[Index5D(queryShape, pTime, ba, 0, 0, co)] * (*result)[Index5D(resultShape, pTime, ba, 0, 0, ti)];
+                  (*keyGradient)[Index5D(keyShape, ti, ba, 0, 0, co)] +=
+                      (*query)[Index5D(queryShape, pTime, ba, 0, 0, co)] * (*result)[Index5D(resultShape, pTime, ba, 0, 0, ti)];    //Lunog이면 -1 삭제!!!
 
               }
           }

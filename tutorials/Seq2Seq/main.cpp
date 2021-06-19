@@ -17,9 +17,9 @@ using namespace std;
 #define HIDDENDIM              128
 // #define ENCODER_TIME           3
 // #define DECODER_TIME           4
-#define BATCH                  5
-#define EPOCH                  10
-#define MAX_TRAIN_ITERATION    500   // (60000 / BATCH)
+#define BATCH                  10
+#define EPOCH                  30
+#define MAX_TRAIN_ITERATION    300   // (60000 / BATCH)
 #define MAX_TEST_ITERATION     5   // (10000 / BATCH)
 #define GPUID                  6
 
@@ -35,10 +35,9 @@ int main(int argc, char const *argv[]) {
     clock_t startTime = 0, endTime = 0;
     double  nProcessExcuteTime = 0;
 
-    //RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/eng-fra_short.txt", "eng", "fra");      //input 2개는 확인해 봤지만 label은 확인하지 못함!
     RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/test2.txt", "eng", "fra");
-    //RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/test2.txt", "eng", "fra");
-    //RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/padding_test.txt", "eng", "fra");
+    // RNNParalleledCorpusDataset<float>* translation_data = new RNNParalleledCorpusDataset<float>("Data/long.txt", "eng", "fra");
+
     translation_data->BuildVocab();
 
     DataLoader<float> * train_dataloader = new DataLoader<float>(translation_data, BATCH, TRUE, 20, FALSE);
@@ -57,7 +56,6 @@ int main(int argc, char const *argv[]) {
     Tensorholder<float> *encoder_lengths_holder = new Tensorholder<float>(Tensor<float>::Zeros(1, BATCH, 1, 1, 1), "EncoderLengths");
     Tensorholder<float> *decoder_lengths_holder = new Tensorholder<float>(Tensor<float>::Zeros(1, BATCH, 1, 1, 1), "DecoderLengths");
 
-    //NeuralNetwork<float> *net = new my_SeqToSeq(encoder_x_holder, decoder_x_holder, label_holder, vocab_size, EMBEDDIM);
     // NeuralNetwork<float> *net = new my_SeqToSeq(encoder_x_holder, decoder_x_holder, label_holder, vocab_size, EMBEDDIM, HIDDENDIM, encoder_lengths_holder, decoder_lengths_holder);
     NeuralNetwork<float> *net = new my_AttentionSeqToSeq(encoder_x_holder, decoder_x_holder, label_holder, encoder_lengths_holder, decoder_lengths_holder, vocab_size, EMBEDDIM, HIDDENDIM);
 

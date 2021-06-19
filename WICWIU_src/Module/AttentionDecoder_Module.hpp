@@ -65,7 +65,7 @@ public:
         out  = new Tanh<DTYPE>(out, "rnn_tanh");
         //
         // //linear 한번 더
-        // //사이즈 적어둔게 하나도 없음....
+        // //Luong 논문에 사이즈 적어둔게 하나도 없음....
         out = new Linear<DTYPE>(out, hiddensize, outputsize, TRUE, "Fully-Connected-HBar2O");
 
 
